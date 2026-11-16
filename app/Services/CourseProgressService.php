@@ -193,7 +193,7 @@ class CourseProgressService
      *
      * @return Collection<int, array{module: Module, topics: Collection, total: int, mastered: int, percent: int}>
      */
-    public function moduleKategorieBreakdown(CourseDefinition $course, Tenant $tenant, User $user): Collection
+    public function moduleKategorieBreakdown(CourseDefinition $course, Tenant $tenant, User $user, ?Collection $allowedQuestionIds = null): Collection
     {
         $course->loadMissing(['modules.questions.revisions' => function ($query) {
             $query->where('editorial_status', 'published')->orderByDesc('revision_no');
@@ -202,12 +202,18 @@ class CourseProgressService
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
         $mastered = fn ($questionIds) => $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
 
-        return $course->modules->map(function ($module) use ($mastered) {
+        $allowed = $allowedQuestionIds?->flip();
+
+        return $course->modules->map(function ($module) use ($mastered, $allowed) {
             // Bug-Review F7: siehe overallPercent() -- eine deaktivierte
             // Frage zählte hier ebenfalls weiter mit, obwohl sie nie
             // "gefestigt" werden kann.
             // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
             $activeQuestions = ContentQuestion::filterCurrentlyValid($module->questions);
+            // Mobile-API: bei eingeschränktem Zugang nur die freigegebenen Fragen (CourseAccess).
+            if ($allowed !== null) {
+                $activeQuestions = $activeQuestions->filter(fn ($q) => $allowed->has($q->id));
+            }
 
             $topics = $activeQuestions
                 ->groupBy(function ($q) {

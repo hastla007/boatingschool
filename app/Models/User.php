@@ -47,6 +47,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
+            'email_ever_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_superadmin' => 'boolean',
             'two_factor_secret' => 'encrypted',

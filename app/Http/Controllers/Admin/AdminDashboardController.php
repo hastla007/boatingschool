@@ -16,6 +16,7 @@ use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\InstructorCourse;
+use App\Models\LearningGroup;
 use App\Models\PlatformAnnouncement;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
@@ -30,6 +31,7 @@ use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
 use App\Services\CourseProgressService;
 use App\Services\InvitationCoupon;
+use App\Services\LearningGroupService;
 use App\Support\InstructorScope;
 use App\Support\ParticipantFilters;
 use App\Support\TenantContext;
@@ -236,29 +238,39 @@ class AdminDashboardController extends Controller
         // Schritten)? Bei mehreren aktiven Kurszugängen zählt der am
         // weitesten fortgeschrittene (derselbe Fortschrittswert wie auf
         // der Kursübersicht, siehe CourseProgressService::overallPercent).
-        // Bug-Review Betrieb B6 / Review-Runde 8: früher lief hier
-        // overallPercent() je Freischaltung (N+1), danach wurden ALLE
-        // gefestigten Progress-Zeilen aller Lernenden in PHP geladen
-        // (Speicher/Laufzeit wuchsen mit Lernenden × Fragen). Jetzt zählt
-        // CourseProgressService::percentsByUserAndCourse() in SQL je Lerner
-        // und Kurs -- dieselbe Formel, eine Implementierung.
+        // Bug-Review Betrieb B6 (dasselbe Muster wie Superadmin\UserController::
+        // show(), Bug-Review P1): overallPercent() lief hier einmal PRO
+        // Freischaltung JE Lerner in der Phase "Lernen" und lud dabei jedes
+        // Mal frisch sowohl die Modul-/Fragen-Relation des Kurses als auch
+        // die Progress-Tabelle nach -- bei 500 Lernenden wurde /admin
+        // dadurch mit hunderten zusätzlichen Queries spürbar langsam.
+        // Audit ARC-1: bisher wurden dafür alle gefestigten Progress-Zeilen
+        // der Lernenden als Modelle geladen (Lernende × Fragen; bei 1000
+        // Lernenden ~438 MB, darüber „memory exhausted“). Jetzt zählt die
+        // Datenbank je Kurs (CourseProgressService::overallPercents(), eine
+        // gruppierte Abfrage je Kurs und 2000 Lernende) -- dieselbe Formel
+        // wie overallPercent(): nur gültige Fragen (F7/BB16), gerundet.
         $learningEntitlements = Entitlement::where('tenant_id', $tenant->id)
             ->currentlyActive()
             ->whereIn('user_id', $learningPhaseLearnerIds)
-            // Wie bisher (Lerner ohne Nutzerdatensatz wurden übersprungen).
             ->whereHas('user')
             ->get(['user_id', 'course_id']);
-        $learningCourses = CourseDefinition::whereIn('id', $learningEntitlements->pluck('course_id')->unique()->values())->get();
-        $percentsByUser = app(CourseProgressService::class)->percentsByUserAndCourse($tenant, $learningCourses, $learningEntitlements->pluck('user_id'));
-        $courseIdsByUser = $learningEntitlements->groupBy('user_id')->map(fn ($rows) => $rows->pluck('course_id'));
-        $progressBuckets = ['0–20%' => 0, '21–40%' => 0, '41–60%' => 0, '61–80%' => 0, '81–100%' => 0];
-        foreach ($learningPhaseLearnerIds as $learnerId) {
-            $courseIds = $courseIdsByUser->get($learnerId);
-            if ($courseIds === null) {
+        $learningCourses = CourseDefinition::whereIn('id', $learningEntitlements->pluck('course_id')->unique()->values())->get()->keyBy('id');
+        // Ohne Kurs (z. B. nicht mehr sichtbar) zählt eine Freischaltung mit 0 %.
+        $bestPercentByUser = $learningEntitlements->pluck('user_id')->unique()->mapWithKeys(fn ($id) => [$id => 0])->all();
+        $progressService = app(CourseProgressService::class);
+        foreach ($learningEntitlements->groupBy('course_id') as $courseId => $rows) {
+            $course = $learningCourses->get($courseId);
+            if (! $course) {
                 continue;
             }
-            // Kurse, die (z. B. per Sichtbarkeits-Scope) nicht geladen werden, zählen nicht mit.
-            $percent = $courseIds->map(fn ($courseId) => $percentsByUser[$learnerId][$courseId] ?? null)->filter(fn ($p) => $p !== null)->max() ?? 0;
+            foreach ($progressService->overallPercents($course, $tenant, $rows->pluck('user_id')) as $userId => $percent) {
+                $bestPercentByUser[$userId] = max($bestPercentByUser[$userId], $percent);
+            }
+            $course->unsetRelation('modules');
+        }
+        $progressBuckets = ['0–20%' => 0, '21–40%' => 0, '41–60%' => 0, '61–80%' => 0, '81–100%' => 0];
+        foreach ($bestPercentByUser as $percent) {
             $bucket = match (true) {
                 $percent <= 20 => '0–20%',
                 $percent <= 40 => '21–40%',
@@ -371,7 +383,11 @@ class AdminDashboardController extends Controller
             ->where('site_enabled', true)
             ->orderBy('name')->get();
 
-        $productPurchases = ProductPurchase::where('tenant_id', $tenant->id)->with('product')->get()
+        // Audit ARC-1: nur für die Teilnehmer der angezeigten Seite (die
+        // Liste zeigt sie je Teilnehmer), nicht alle Käufe der Schule.
+        $productPurchases = ProductPurchase::where('tenant_id', $tenant->id)
+            ->whereIn('user_id', $participants->getCollection()->pluck('user_id'))
+            ->with('product')->get()
             ->groupBy('user_id');
 
         $branding = $tenant->branding;
@@ -532,14 +548,17 @@ class AdminDashboardController extends Controller
             ->withCount(['coupons as redeemed_count' => fn ($q) => $q->whereNotNull('redeemed_at')])
             ->orderByDesc('created_at')->limit(20)->get();
 
-        $couponSummary = Coupon::where('tenant_id', $tenant->id)
+        $couponSummaryRows = Coupon::where('tenant_id', $tenant->id)
             ->selectRaw('course_id, product_id, is_renewal, count(*) filter (where redeemed_at is null and voided_at is null and (expires_at is null or expires_at > now())) as free_count, count(*) filter (where redeemed_at is not null) as used_count')
             ->groupBy('course_id', 'product_id', 'is_renewal')
-            ->get()
-            ->map(function ($row) {
-                $course = $row->course_id ? CourseDefinition::withoutGlobalScopes()->find($row->course_id) : null;
-                $product = $row->product_id ? Product::find($row->product_id) : null;
-                $name = $course->name ?? $product->name ?? '—';
+            ->get();
+        // Audit ARC-6: Namen vorab in je einer Abfrage statt find() je Zeile.
+        $summaryCourseNames = CourseDefinition::withoutGlobalScopes()->whereIn('id', $couponSummaryRows->pluck('course_id')->filter()->unique()->values())->pluck('name', 'id');
+        $summaryProductNames = Product::whereIn('id', $couponSummaryRows->pluck('product_id')->filter()->unique()->values())->pluck('name', 'id');
+        $couponSummary = $couponSummaryRows
+            ->map(function ($row) use ($summaryCourseNames, $summaryProductNames) {
+                $name = ($row->course_id ? $summaryCourseNames->get($row->course_id) : null)
+                    ?? ($row->product_id ? $summaryProductNames->get($row->product_id) : null) ?? '—';
 
                 return (object) [
                     'name' => $row->is_renewal ? "{$name} (Verlängerung)" : $name,
@@ -561,6 +580,19 @@ class AdminDashboardController extends Controller
             ->selectRaw('course_id, count(*) as free_count')
             ->groupBy('course_id')
             ->pluck('free_count', 'course_id');
+
+        // Lerngruppen (nur Inhaber/Admins, Admin\LearningGroupController):
+        // höchstens drei Abfragen, unabhängig von der Zahl der Gruppen und
+        // Mitglieder (Gruppen samt belegter Plätze, Verwalter, Kurse).
+        $learningGroups = collect();
+        if ($canManageTenant) {
+            $learningGroupService = app(LearningGroupService::class);
+            $learningGroups = LearningGroup::where('tenant_id', $tenant->id)->with('owner')
+                ->withCount(['members as used_seats' => fn ($q) => $q->occupyingSeat()])
+                ->orderByRaw("status = 'revoked'")->orderByDesc('created_at')->get();
+            $learningGroupCourses = LearningGroupService::coursesByCode($learningGroups);
+            $learningGroups->each(fn (LearningGroup $group) => $group->setAttribute('scope_summary', $learningGroupService->describeScopes($group, $learningGroupCourses)));
+        }
 
         return view('admin.dashboard', [
             'platformAnnouncements' => PlatformAnnouncement::visible()->forTenant($tenant->id)->orderByDesc('created_at')->limit(5)->get(),
@@ -612,6 +644,7 @@ class AdminDashboardController extends Controller
             'shopBatches' => $shopBatches,
             'couponFilters' => $couponFilters,
             'freeCourseCouponCounts' => $freeCourseCouponCounts,
+            'learningGroups' => $learningGroups,
         ]);
     }
 

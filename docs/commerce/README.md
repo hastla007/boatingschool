@@ -24,7 +24,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 |---|---|---|
 | Zustellung | **Nur** in den Codebestand der Schule auf der Plattform. Kein Download, keine Mail mit Codes, kein ZIP und kein Ersatzweg | Codewerte verlassen die Plattform nie. Sie stehen weder im Shop noch in Mails, Protokollen oder Ereignissen |
 | Kaufbar | Kurscodes, Verlängerungscodes, Produktcodes, Kurscodes mit Zusatzprodukten | Entspricht den Codearten der Plattform |
-| Registrierung im Shop | Legt sofort ein App-Konto an (Status „eingeladen“). Die Zuordnung zu einer Schule und der Einkauf folgen erst nach Prüfung durch den Superadmin | B2B: Nur echte Bootsschulen kaufen |
+| Registrierung im Shop | Legt nur das Shopkonto an, **kein** App-Konto. Das App-Konto entsteht erst bei der Freigabe durch den Superadmin (Status „eingeladen“, Link zum Setzen des Passworts) | B2B: Nur echte Bootsschulen kaufen. Die im Shop angegebene Adresse ist unbestätigt: Sie blockiert keine spätere Selbstregistrierung in der App, und bis zur Prüfung liegen keine Daten Dritter im App-Konto |
 | Verknüpfung | Per Einmalcode, den Inhaber oder Admin einer Schule in der App erzeugen (8 Zeichen, 15 Minuten gültig) | **E-Mail-Gleichheit verknüpft nie**, weder bei der Registrierung noch bei der Anlage aus der App |
 | Führend | Die App führt Schule, Schulname und App-Konten. WooCommerce führt Rechnungsdaten, USt-IdNr. und Zahlung | Der Shop-Abgleich schreibt nur in das Shopkonto (`commerce_shop_account`), nie in das App-Konto |
 | Idempotenz | Genau ein Code-Paket (`coupon_batch`) je Bestellposition, eindeutig über `(shop_id, order_id, order_line_id)` | Wiederholungen nach einer Zeitüberschreitung erzeugen nie neue Codes. Abweichender Inhalt ergibt 409 `ORDER_LINE_CONFLICT` |
@@ -39,7 +39,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 ### 1. Bestehende Schule kauft im Shop
 
 1. Die Kundin registriert sich im Shop und bestätigt ihre E-Mail-Adresse über den Link aus der Bestätigungsmail des Shops. Erst dann sendet das Plugin `POST /accounts`.
-   - Gibt es noch kein App-Konto mit der Adresse: Status `pending_review`.
+   - Gibt es noch kein App-Konto mit der Adresse: Status `pending_review` (ohne App-Konto).
    - Gibt es schon eines: Status `awaiting_link` (ist die Person noch nicht Inhaberin/Admin einer Schule, legt der Superadmin die Schule mit dieser Adresse als Inhaber an; danach verknüpft sie per Code). Es wird **nicht** verknüpft, und der Superadmin kann es auch nicht freigeben (nur ablehnen); verknüpft wird es ausschließlich per Code aus diesem App-Konto. Nach außen meldet die API in beiden Fällen `pending_review`, damit der Shop nicht verrät, ob eine Adresse ein App-Konto hat.
 2. Inhaber oder Admin der Schule erzeugt unter Admin → Codes → „Shop verknüpfen“ einen Verknüpfungscode.
 3. Im Shop unter „Mein Konto → Bootsschule verknüpfen“ den Code eingeben (nur mit bestätigter E-Mail-Adresse). Das Plugin sendet `POST /accounts/{id}/link`, der Status wird `linked`.
@@ -49,8 +49,10 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 
 1. Registrierung wie oben, Status `pending_review`.
 2. Der Superadmin prüft unter „Shopkonten“ und hat drei Möglichkeiten:
-   - **Neue Schule** anlegen: Die Person wird Inhaberin und erhält den Link zum Einrichten des Passworts.
-   - **Bestehender Schule** als Admin zuordnen. Die Inhaber der Schule bekommen dazu eine E-Mail. Ist die Person dort schon eingetragen (z. B. als Teilnehmer), wird nichts still hochgestuft – die Freigabe wird abgelehnt.
+   - **Neue Schule** anlegen: Erst jetzt entsteht das App-Konto aus den Angaben des Shopkontos (E-Mail, Name). Die Person wird Inhaberin und erhält den Link zum Einrichten des Passworts.
+   - **Bestehender Schule** als Admin zuordnen (App-Konto ebenso). Die Inhaber der Schule bekommen dazu eine E-Mail. Ist die Person dort schon eingetragen (z. B. als Teilnehmer), wird nichts still hochgestuft – die Freigabe wird abgelehnt.
+   - Hat die Adresse inzwischen ein App-Konto (z. B. selbst registriert), wird nicht freigegeben: Das Shopkonto wechselt auf `awaiting_link` und wird nur per Code aus diesem App-Konto verknüpft.
+   - Ältere Registrierungen, die noch mit App-Konto angelegt wurden, werden mit diesem Konto freigegeben; beim Ablehnen wird es entfernt, wenn es nie benutzt wurde.
    - **Ablehnen**: Danach ist auch keine Verknüpfung per Code mehr möglich (409 `ACCOUNT_REJECTED`).
 
 ### 3. Superadmin legt eine Schule in der App an
@@ -70,7 +72,8 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 ### 4. Bestellung
 
 1. Kaufen dürfen nur angemeldete, verknüpfte Konten einer aktiven Schule.
-   - Das prüft das Plugin beim Hinzufügen zum Warenkorb, im Warenkorb und unmittelbar vor der Bestellung (dort ohne Cache).
+   - Das prüft das Plugin beim Hinzufügen zum Warenkorb, im Warenkorb und unmittelbar vor der Bestellung (dort ohne Cache, höchstens alle 10 Sekunden je Kunde).
+   - Zwischenspeicher im Plugin: Status 5 Minuten, Fehlschläge (404, 429, 5xx, keine Antwort) 60 Sekunden. „Mein Konto → Bootsschule verknüpfen“ lädt nur direkt nach einem Verknüpfungsversuch frisch.
    - Ist die Plattform nicht erreichbar, wird gesperrt.
 2. Nach der Zahlung (`processing`/`completed`) plant das Plugin je Position eine Zustellung ein (Action Scheduler). Der Lieferauftrag wird dabei eingefroren: Spätere Änderungen am Produkt ändern ihn nicht.
 3. Zustellung mit `POST /orders/lines`:
@@ -79,9 +82,10 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
    - Keine Antwort, 408, 429 oder 5xx: neuer Versuch nach 1, 5 und 30 Minuten, höchstens vier Versuche.
    - Eine Wiederholung derselben Position bestätigt eine schon erfolgte Lieferung immer – auch wenn inzwischen die Verknüpfung gelöst oder der Kurs abgeschaltet wurde.
    - Sonstiges `4xx` (z. B. Konto nicht verknüpft, Kurs abgeschaltet) und 429 `CODE_QUOTA_EXCEEDED`: sofort „fehlgeschlagen“.
-   - **Tageskontingent:** Je Schule und Tag höchstens `COMMERCE_DAILY_CODE_LIMIT` Codes (Standard 1000). Darüber: 429 `CODE_QUOTA_EXCEEDED` und Alarm-Mail an den Betreiber. Ist die Bestellung echt, das Kontingent vorübergehend anheben und im Shop „Erneut zustellen“ auslösen.
+   - **Tageskontingent:** Je Schule und Tag höchstens `COMMERCE_DAILY_CODE_LIMIT` Codes (Standard 1000). Darüber: 429 `CODE_QUOTA_EXCEEDED` und Alarm-Mail an den Betreiber. Ist die Bestellung echt, das Kontingent vorübergehend anheben und im Shop „Erneut zustellen“ auslösen. Gleichzeitige Lieferungen derselben Schule werden nacheinander gezählt (Sperre je Schule bis zum Ende der Transaktion), parallele Positionen können das Kontingent also nicht überspringen.
    - Bei „fehlgeschlagen“: Bestellnotiz, Alarm-Mail und Knopf „Erneut zustellen“ in der Bestellung. Dieselbe Referenz liefert höchstens einmal.
 4. Die Codes erscheinen bei der Schule unter Admin → Codes. Die Tabelle „Bestellungen aus dem Shop“ zeigt Menge, eingelöste Codes und Status.
+5. Auch Lerngruppen verbrauchen Kurscodes aus diesem Bestand: jeder Beitritt einen freien reinen Kurscode je Kurs der Gruppe (keine Verlängerungs- oder Produktcodes, keine mit Zusatzprodukten). Er gilt danach als eingelöst (vom Mitglied) und zählt in der Bestellübersicht mit; ein Storno sperrt ihn nicht mehr. Entfernen aus der Gruppe gibt ihn nicht zurück. Details: `docs/api/README.md`, Abschnitt Lerngruppen.
 
 ### 5. Rückerstattung und Storno
 
@@ -91,7 +95,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 - Kommt eine Rückerstattung, bevor die Zustellung gelungen ist, merkt sich das Plugin die Sperre und wendet sie nach der Lieferung an (geliefert wird immer die volle Menge der Position).
 - Steht eine Bestellung zwischenzeitlich „In Wartestellung“ (Prüfung, Streitfall), wird die Zustellung zurückgestellt (`deferred`) und bei „In Bearbeitung“ mit demselben eingefrorenen Auftrag (Zuordnung, Menge, Kunde) fortgesetzt. „In Wartestellung“ sperrt keine Codes – nur „Storniert“ und „Erstattet“.
 - Wird während einer laufenden Zustellung storniert, liefert das Plugin nicht weiter und fragt bei „nicht gefunden“ mehrfach nach (1, 5, 30 Minuten), ob der Auftrag doch noch ankam, und sperrt ihn dann.
-- Wird eine stornierte Bestellung später wieder auf bezahlt gesetzt, liefert das Plugin nicht automatisch nach, sondern meldet es per Bestellnotiz und Alarm-Mail.
+- Wird eine stornierte oder vollständig erstattete Bestellung später wieder auf bezahlt gesetzt, liefert das Plugin nicht automatisch nach, sondern meldet es einmalig per Bestellnotiz und Alarm-Mail – auch wenn die Codes vor dem Storno schon geliefert waren.
 
 ## Commerce-API v1
 
@@ -114,6 +118,16 @@ METHODE \n /PFAD \n ZEITSTEMPEL \n NONCE \n sha256(BODY)
 Fehlercodes der Signaturprüfung: `SIGNATURE_INVALID`, `SIGNATURE_EXPIRED`, `SIGNATURE_REPLAYED`.
 Nicht signierte Teile werden abgelehnt: Query-Parameter (400 `QUERY_NOT_ALLOWED`) und Bodies, die kein JSON sind (415).
 Die Signatur wird geprüft, bevor die Owner-Verbindung aktiv wird und bevor gedrosselt wird.
+
+**Begrenzung** (je Shop und Minute, getrennte Töpfe, `config/commerce.php` → `rate_limits`; darüber 429 `RATE_LIMITED`):
+
+| Topf | Endpunkte | Grenze |
+|---|---|---|
+| Lieferung | `/orders/…`, `/batches/…` (Lieferung, Status, Sperren) | 1200 |
+| Konten | `/catalog`, `/accounts…` | 300 |
+| je Shopkunde | `/accounts…` mit derselben Kunden-ID (Pfad bzw. `shop_customer_id`) | 20 |
+
+Konto- und Statusabfragen, die Shopkunden indirekt auslösen, können so Lieferungen und Sperren nicht ausbremsen.
 
 | Methode und Pfad | Zweck | Wichtige Fehler |
 |---|---|---|
@@ -151,7 +165,7 @@ Der Scheduler (`schedule:run` jede Minute) muss laufen, er führt
 
 **Shop:** Die Installation des Plugins beschreibt
 `integrations/woocommerce-connector/readme.txt`. Die Geheimnisse gehören über
-`BS_CONNECTOR_*`-Konstanten in die `wp-config.php`:
+`BS_CONNECTOR_*`-Konstanten in die `wp-config.php` (so festgelegte Felder sind in den Plugin-Einstellungen gesperrt):
 
 | Plugin | Plattform |
 |---|---|
@@ -159,10 +173,12 @@ Der Scheduler (`schedule:run` jede Minute) muss laufen, er führt
 | `BS_CONNECTOR_INBOUND_SECRET` | `COMMERCE_OUTBOUND_SECRET` |
 
 Ist eine dieser Konstanten gesetzt, blendet die Einstellungsseite des Plugins
-das Feld aus (die Konstante hat immer Vorrang; eine alte Kopie in der Datenbank
-wird beim nächsten Speichern gelöscht). Liegen Geheimnisse noch in der
-Datenbank (`bs_connector_settings`), zeigt das WordPress-Backend einen
-dauerhaften Hinweis. Mit der Einstellung „Geheimnisse aus der Datenbank
+das Feld aus und nennt nur die Konstante (die Konstante hat immer Vorrang; eine
+alte Kopie in der Datenbank wird beim nächsten Speichern gelöscht). Ebenso
+gesperrt sind `BS_CONNECTOR_APP_URL`, `BS_CONNECTOR_KEY_ID`,
+`BS_CONNECTOR_INBOUND_KEY_ID` und `BS_CONNECTOR_VIES_REQUESTER`, wenn gesetzt.
+Liegen Geheimnisse noch in der Datenbank (`bs_connector_settings`), zeigt das
+WordPress-Backend Administratoren einen dauerhaften Hinweis. Mit der Einstellung „Geheimnisse aus der Datenbank
 erlauben“ = aus oder dem Filter `bs_connector_allow_db_secrets` (`false`)
 ignoriert das Plugin Geheimnisse aus der Datenbank ganz; Standard ist „an“,
 damit bestehende Installationen weiterlaufen.
@@ -170,11 +186,14 @@ damit bestehende Installationen weiterlaufen.
 Voraussetzungen: WooCommerce ab 8 (HPOS-kompatibel) und der mitgelieferte
 Action Scheduler. Außerdem:
 
+- Die Einstellungen (WooCommerce → Einstellungen → Bootsschule) sehen und
+  speichern nur **Administratoren** (`manage_options`), nicht Shop-Manager.
+  Das gilt auch für den Knopf „Verbindung testen“.
 - **Permalinks** dürfen nicht auf „Einfach“ stehen, sonst ist
   `/wp-json/boatingschool/v1/provision` nicht erreichbar.
 - Produkte mit **Varianten** sind möglich; die Zuordnung steht am Hauptprodukt.
 - Höchstmenge je Bestellposition aus dem Katalog (`max_quantity`, derzeit 500), im Shop begrenzt.
-- Warenkorb und Kasse prüfen, ob die verknüpfte Schule den Kurs erhalten kann (`deliverable_course_codes` aus `GET /accounts/{id}`), damit nicht nach der Zahlung eine Lieferung scheitert.
+- „In den Warenkorb“, Warenkorb und Kasse prüfen, ob die verknüpfte Schule den Kurs erhalten kann (`deliverable_course_codes` aus `GET /accounts/{id}`), damit nicht nach der Zahlung eine Lieferung scheitert. Kurs- und Verlängerungscodes für nicht freigeschaltete Kurse kommen gar nicht erst in den Warenkorb.
 - **Klassischer und Block-Checkout** prüfen unmittelbar vor der Bestellung
   frisch, ob das Konto einkaufen darf.
 - **E-Mail-Bestätigung:** Neue Kundenkonten werden erst nach dem Klick auf den Bestätigungslink (signiert, 3 Tage gültig, einmalig) bei der Plattform angemeldet. „Mein Konto → Bootsschule verknüpfen“ zeigt den Stand und bietet „Bestätigungsmail erneut senden“. Vom Provisionierungs-Endpunkt angelegte Konten gelten als bestätigt.
@@ -192,18 +211,22 @@ Action Scheduler. Außerdem:
   Bootsschul-Codes ausgeblendet. Bestellungen mit einer solchen Zahlart werden erst zugestellt,
   wenn das Gateway die Zahlung bestätigt oder die Bestellung auf „Abgeschlossen“ gesetzt wird.
 
-**Test:** Die Abläufe 1–5 sind einmal gegen ein echtes WordPress mit
-WooCommerce und die App durchgespielt worden (Versionen, Schritte, Ergebnisse
-und Grenzen: [wordpress-integrationstest.md](wordpress-integrationstest.md)).
-Automatisiert geprüft sind:
+**Test:** Die Abläufe 1–5 sind gegen echtes WordPress mit WooCommerce und
+die App durchgespielt worden: einmal mit Plugin 1.2.0 (Versionen, Schritte,
+Ergebnisse und Grenzen: [wordpress-integrationstest.md](wordpress-integrationstest.md))
+und einmal lokal gegen WordPress 7.1.4 / WooCommerce 11.3.0 (SQLite statt
+MySQL; Ergebnis und Lücken: [`staging-test.md`](staging-test.md), Abschnitt
+„Ergebnis lokaler E2E-Test“). Automatisiert geprüft sind:
 
 - Signatur und Zustellentscheidungen gegen die App (Unit-Test).
 - Die WordPress-freien Hilfsklassen des Plugins: Bestätigungslink, Protokoll ohne Codewerte, Abgleich, Datenschutz-Export, Aktualität der `.pot` (`tests/Unit/ConnectorPluginHelpersTest.php`).
 - USt-IdNr.-Format je EU-Land, Auswertung der VIES-Antworten und Vorrang der Geheimnisse aus `wp-config.php` (`tests/Unit/ConnectorVatCheckTest.php`).
+- Status-Zwischenspeicher, Einstellungen nur für Administratoren, gesperrte Felder aus `wp-config.php`, Warenkorb-Sperren und Storno-Reaktivierung mit einem minimalen WordPress-/WooCommerce-Ersatz (`tests/Unit/ConnectorAccountsAndSettingsTest.php`, `tests/Unit/ConnectorOrdersAndCheckoutTest.php`).
 - Alle App-Endpunkte mit simulierten Shop-Aufrufen (Feature-Tests).
 - Der Ausgang mit einem simulierten Shop, einschließlich gleichzeitigem Beanspruchen, hängender Versände und der Übernahme bestehender Shopkonten.
 - Eine Lieferung von 500 Codes (Zeitmessung) und die gemeinsame Code-Erzeugung (`tests/Feature/CouponBatchFactoryTest.php`).
 
 Vor dem Livebetrieb sollten die Abläufe 1–5 trotzdem einmal auf der
-Staging-Installation des Shops (mit dessen Theme, Zahlarten und Plugins)
-durchgespielt werden.
+Staging-Installation des Shops (mit dessen Theme, Zahlarten und Plugins,
+MySQL, echter Testzahlart, echtem Mailversand und Cron) durchgespielt werden
+(Checkliste: [`staging-test.md`](staging-test.md)).

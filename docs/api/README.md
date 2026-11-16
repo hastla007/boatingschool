@@ -7,7 +7,7 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 47 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 82 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
@@ -59,10 +59,11 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
 ### Hinweise zu den Unterlagen
 
 * **Konto löschen (Apple-Richtlinie 5.1.1 v):** Die App legt keine Konten an
-  (Konten entstehen über die Schule oder einen Code). Eine Löschfunktion in
-  der App ist damit nicht vorgeschrieben. Die App verlinkt dafür auf das
-  Profil im Web (`memberships[].legal.account_url`, dort „Konto löschen“;
-  Datenrechte unter `legal.data_rights_url`).
+  (Konten entstehen über die Schule oder einen Code), bietet die Löschung
+  aber trotzdem an: `POST /me/deletion-request` (siehe Abschnitt 12). Es
+  gilt dasselbe wie „Konto löschen“ im Profil im Web
+  (`memberships[].legal.account_url`; Datenrechte unter
+  `legal.data_rights_url`).
 * **Regelwerk `ADD-FKN-TO-SKN`** ist weiterhin ein Entwurf. Die API bietet
   dafür keine Prüfung an (`startable: false` bzw. `EXAM_NOT_AVAILABLE`), bis
   das Regelwerk freigegeben ist.
@@ -95,6 +96,34 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
   `remaining_seconds` der Prüfung verwenden, nicht die Gerätezeit.
 * **Seiten:** `page`, `per_page` (max. 100), Antwort in `meta.pagination`.
 * **Caching:** Alle Antworten sind `Cache-Control: no-store, private`.
+* **Medien-URLs sind kurzlebig:** Bilder zu Fragen (`prompt_media[].url`)
+  mit geschützten Rechten (z. B. amtliche Fragenbilder) sind signierte
+  Adressen, an Person und Schule gebunden und 120 Minuten gültig. Sie
+  funktionieren ohne `Authorization`-Header (Bild-Loader). Der Zugang
+  wird beim Abruf erneut geprüft; ohne Kurszugang kommt 404.
+  * Die App darf diese URLs nicht dauerhaft speichern (keine Datenbank,
+    kein Offline-Paket mit URL). Das geladene Bild darf sie im Speicher-
+    bzw. Bild-Cache halten (`Cache-Control: private, max-age=3600`).
+  * Nach 403 auf eine Bild-URL (abgelaufen) die Frage bzw. Prüfung neu
+    laden; die Antwort enthält dann frische URLs. Das gilt auch für eine
+    per Idempotency-Key wiederholte Antwort.
+  * Öffentliche Medien behalten ihre bisherige, dauerhafte URL.
+  * Kartenausschnitte der Navigationsaufgaben (`chart.url` in
+    `GET /navigation-tasks/{id}` und im Navigationsteil der Prüfung) gelten
+    genauso: signiert, an Person und Schule gebunden, Zugang beim Abruf
+    erneut geprüft (404 ohne Kurszugang), 90 Minuten gültig.
+  * Bilder der Videoschritte (`steps[].media[].url` in `GET /videos/{id}`)
+    gelten genauso: signiert, 120 Minuten gültig, Zugang beim Abruf erneut
+    geprüft (Funktion `video` des Kurses, bei Probezugang nur die
+    freigegebenen Lektionen; sonst 404). Das Feld `url` bleibt wie bisher.
+  * PDF-Anhänge der Tipps (`pdf.url` in `GET /tips`) ebenso: signiert,
+    120 Minuten gültig, für alle aktiven Mitglieder einer laufenden Schule
+    (kein Kurszugang nötig). Die Datei kommt inline als `application/pdf`
+    mit dem Tipp-Titel als Dateinamen. Nach 403 (abgelaufen) `GET /tips`
+    neu laden. Geschützte Bilder kommen mit `Content-Security-Policy: …;
+    sandbox`; PDFs ohne `sandbox` (sonst zeigt Chrome sie nicht im Browser
+    an), mit `default-src 'none'; object-src 'self'; frame-ancestors 'self'`
+    -- kein Skript, Einbetten nur auf der eigenen Seite.
 * **Request-ID:** Jede Antwort hat `X-Request-Id`, Fehler zusätzlich
   `request_id`. Für Support-Anfragen mitschicken; die ID steht auch im
   Server-Log und im Fehlertracking.
@@ -126,14 +155,16 @@ Antworten werden 24 Stunden je Konto gespeichert.
 
 | Bereich | Grenze |
 |---|---|
-| Login | 10/Min. je IP, 5 Fehlversuche je E-Mail+IP und Minute, 20 je Konto in 15 Min. |
+| Login | 10/Min. je IP, 5 Fehlversuche je E-Mail+IP und Minute, 20 je Konto und Netz (IPv4 /24, IPv6 /48) in 15 Min.; nach 20 Fehlversuchen je Konto insgesamt nur noch 3 je Netz. Ein richtiges Passwort aus einem Netz ohne eigene Fehlversuche scheitert nicht an fremden Fehlversuchen (gemeinsam mit dem Web). |
 | 2FA | 10/Min., dazu 5 Versuche je Konto in 5 Min. (gemeinsam mit dem Web) |
 | Refresh | 10/Min. je Refresh-Token, 300/Min. je IP |
 | Passwort vergessen/zurücksetzen | je 6/Min. |
 | Bestätigungsmail | 6/Min. |
-| App-Konfiguration | 60/Min. |
+| App-Konfiguration, Health | je 60/Min. |
+| App-Einstellungen speichern | 60/Min. |
 | Schulbezogene Endpunkte | 240/Min. je Konto |
 | Codes einlösen | 10/Min. |
+| Lerngruppen | Vorschau 30/Min.; Einladen 20 Aufrufe/Std. je Verwalter, je Gruppe und Tag max(20, 2 × Plätze) Einladungen |
 | Datenexport | 5/Std., Download 20/Min. |
 | Ausgelieferte Fragen | 2000 je Konto und Kalendertag (Europe/Berlin), siehe unten |
 
@@ -167,7 +198,11 @@ POST /auth/login {email, password, device_name, device_platform?, app_version?}
     einmal benutzt: innerhalb von 60 Sekunden nach der Erneuerung (Antwort
     im Funkloch verloren, zwei gleichzeitige Erneuerungen) gibt es ein neues
     Paar; später beendet es die ganze Gerätesitzung (Diebstahl-Schutz).
-    Ältere Tokens ergeben nur 401. Immer das zuletzt erhaltene Paar speichern.
+    Das dabei verdrängte Paar ist verbraucht: wird dessen Refresh-Token
+    später noch vorgelegt, endet die Gerätesitzung ebenfalls. Mehr als fünf
+    Wiederholungen in der Toleranz beenden sie auch.
+    Ältere Tokens ergeben nur 401. Immer das zuletzt erhaltene Paar speichern
+    und Erneuerungen nacheinander statt parallel senden.
 * **Speicherung in der App:** Keychain (iOS) bzw. EncryptedSharedPreferences
   oder Keystore (Android). Auf dem Server liegen nur SHA-256-Hashes.
 * **Abmelden:** `POST /auth/logout` (dieses Gerät),
@@ -187,6 +222,38 @@ POST /auth/login {email, password, device_name, device_platform?, app_version?}
   Der Link in der Mail führt ins Web. Für einen Deep-Link in die App kann die
   App `POST /auth/password/reset` mit `email`, `token` und neuem Passwort
   aufrufen. `invite: true` gilt für Einladungs-Links.
+* **Webansicht der Schule** (eingebettete WebView, z. B. für Seiten, die es
+  in der App nicht gibt): `POST /auth/web-session {redirect}` mit
+  `X-Tenant-Slug` liefert eine Einmal-URL.
+  * Der Code in der URL gilt 60 Sekunden, nur einmal, nur bei dieser Schule
+    und nur, solange diese Gerätesitzung besteht. Gespeichert wird nur sein
+    Hash.
+  * Die WebView lädt die URL mit dem Header `X-Boatingschool-Web-Verifier:
+    <verifier>`. Ohne passenden Verifier verfällt der Code ohne Anmeldung.
+    Danach leitet die Website auf dieselbe Adresse ohne Code weiter.
+  * Ziele nur im Lernbereich (`/dashboard`, `/courses…`, `/tipps-tricks`,
+    `/angebote`, `/willkommensbox`), relativ zur Schuladresse. Kein Profil,
+    keine Verwaltung, keine fremden Hosts (422 `VALIDATION_FAILED`).
+  * Konten mit Team-Rolle bei irgendeiner Schule und Plattform-Konten:
+    403 `WEB_SESSION_NOT_ALLOWED`. Ist im Browser schon jemand anderes
+    angemeldet, bleibt es dabei (keine Anmeldung).
+
+### Health und App-Einstellungen
+
+* `GET /health` (ohne Token) liefert `status: ok`, `api_version` und
+  `server_time`. Wie `GET /app/config` auch im Wartungsmodus und für zu alte
+  App-Versionen erreichbar (Load-Balancer).
+* `GET /me/settings` / `PUT /me/settings {settings, expected_version?}`
+  synchronisieren App-Einstellungen über Geräte hinweg. Sie gelten für das
+  Konto (ohne `X-Tenant-Slug`, für alle Schulen gleich).
+  * `PUT` ersetzt das ganze Objekt; `{}` setzt zurück. Schlüssel
+    `^[a-z0-9_.-]{1,64}$`, höchstens vier Ebenen, höchstens 8192 Bytes.
+  * Jede Antwort enthält die `version` (0 = nie gespeichert) und denselben
+    Wert als `ETag`. Mit `If-Match: "<version>"` oder `expected_version`
+    wird nur gespeichert, wenn niemand dazwischen geändert hat; sonst 409
+    `VERSION_CONFLICT` mit dem aktuellen Stand in `details.current`.
+  * Die Einstellungen sind Teil des Datenexports (`app_settings`) und werden
+    mit dem Konto gelöscht. Keine Gesundheits- oder Zahlungsdaten ablegen.
 
 ## 4. Schule wählen
 
@@ -209,17 +276,95 @@ Fehler beim Schul-Kontext:
 
 `GET /courses` liefert zuerst die freigeschalteten Kurse, dann buchbare Kurse.
 
-* `access.status`: `active`, `expired`, `suspended`, `revoked` oder
-  `not_granted`.
+* `access.status`: `active`, `limited` (nur Probezugang), `pending`,
+  `expired`, `suspended`, `revoked` oder `not_granted`; dazu `trial`,
+  `purchased`, `limits` (Probezugang je Funktion), `expires_soon`,
+  `expires_at` und `renew_url`.
 * `capabilities` (z. B. `smarttrainer`, `exam`, `video`, `navigation`)
-  steuert, welche Kacheln die App zeigt.
+  sagt, welche Funktionen der Kurs hat; `features.<capability>` mit
+  `available`/`full`/`limit` sagt, was die Person davon nutzen darf
+  (gesperrte Kacheln mit Schloss und `webshop_url`). Was dort `available`
+  ist, öffnen auch die Endpunkte der Funktion (siehe Zugriffsregeln).
+  `webshop_url` fehlt nur bei vollem Kurszugang -- bei Probe- oder
+  Teilzugang bleibt der Kauf-Link.
+* `relation` (`hidden`, `recommended`, `recommended_for`) bildet die
+  Katalogregeln der WP-App ab: ein gekaufter Kombikurs blendet seine
+  Teilkurse aus, Aufbaukurse werden empfohlen.
 * `last_activity_at` (letzte Antwort im Kurs) sortiert „Weiterlernen“ über
   alle Kurse. `GET /courses/{id}/overview` nennt in `continue_learning` das
   Modul und das Thema der letzten Frage („Du warst bei …“).
 
 Kursinhalte ohne gültigen Zugang ergeben 403 `ENTITLEMENT_REQUIRED` oder
 `ENTITLEMENT_EXPIRED`. Die App zeigt dann `webshop_url` bzw.
-`meta.renewal_webshop_url` und die Code-Eingabe.
+`meta.renewal_webshop_url` und die Code-Eingabe. `GET /courses/{id}`
+liefert das Kursdetail auch für buchbare Kurse ohne Zugang (mit gesperrten
+`features`).
+
+**Zugriffsregeln (WP-Parität, `App\Api\CourseAccess`):**
+
+* **Kurszugang:** aktives Entitlement ohne Einschränkung
+  (`entitlement.capabilities = null`).
+* **Funktionszugang:** ein Entitlement kann auf einzelne Funktionen
+  beschränkt sein (`capabilities`, z. B. `["exam"]` aus dem WP-Import oder
+  einer Lerngruppe). Die Endpunkte verlangen genau ihre Funktion:
+  Übersicht, Module, Fortschritt, `trainer/next`, `trainer/reveal`,
+  `attempts` und Fehlerliste `smarttrainer`; Favoriten und Sammlungen
+  `favorites`; Prüfungen (Liste, Start, Verlauf, laufende Prüfung)
+  `exam`; Videos `video`; Navigationsaufgaben `navigation`; Praxistrainer
+  `praxis`; Funktraining `funk` (nur im vollen Umfang, kein Probezugang).
+  Übrige Endpunkte (z. B. Prüfungsanmeldung, Kunden-FAQ) verlangen vollen
+  Kurszugang. Das Web öffnet Kurse nur bei vollem Kurszugang; ein Kurs mit
+  bloßem Teilzugang bleibt dort buchbar („Teilzugang in der App“).
+* **Schulregeln** (`course_access_rule`, je Schule, RLS): `free` öffnet eine
+  Funktion ohne Kauf, `free_limited` die ersten N Einträge (beim
+  Fragenkatalog: die ersten N gültigen Fragen je Modul; Module zeigen dann
+  `lock_reason: trial`), `drip` sperrt ein Modul bis N Tage nach
+  Zugangsbeginn (`locked`, `lock_reason: drip`, `unlock_at`). Regeln wirken
+  nur für Kurse, die die Schule anbietet, und nur innerhalb ihres
+  `valid_from`/`valid_until`.
+* **Durchsetzung:** Probezugang und Drip gelten nicht nur für die Anzeige.
+  `trainer/next` spielt nur freigegebene Fragen aus (auch mit
+  `question_ids`, `collection_id` und `mode=favorites`), `module_id` eines
+  gesperrten Moduls, `attempts`, `trainer/reveal` und Favoriten auf eine
+  nicht freigegebene Frage ergeben 403 `ENTITLEMENT_REQUIRED`; die
+  Fehlerliste zeigt nur freigegebene Fragen. Bei Probezugang zu Prüfung,
+  Videos, Navigation und Praxistrainer liefern die Listen die ersten N
+  Einträge (Prüfungsbögen, Lektionen, Aufgaben, Karten in Kursreihenfolge);
+  ein Direktzugriff auf einen späteren Eintrag ergibt 403
+  `ENTITLEMENT_REQUIRED`.
+* **Schalter `MOBILE_API_DEFAULT_ACCESS`:** Standard `entitlement`. Die
+  WP-App kennt `logged_in` („eingeloggt genügt“); gesetzt bekommt JEDES
+  Mitglied der Schule Vollzugriff auf alle angebotenen Kurse. Nur nach
+  ausdrücklicher Geschäftsentscheidung setzen; der Import ändert den Wert
+  nicht.
+
+**Kursdateien (Downloads, Abschnittsdateien, Karten):**
+
+* `GET /courses/{id}` listet `downloads`, `section_files` (je
+  `section_key`) und `charts`. Jeder Eintrag (`FileRef`) hat `locked` und,
+  wenn frei, `url` = `GET /files/{fileId}`. Die App ruft die Datei mit Token
+  und `X-Tenant-Slug` ab (`requires_authorization: true`); es gibt keine
+  öffentlichen oder ratbaren Adressen.
+* Regeln (`App\Api\CourseFiles`, gleich für Liste und Download):
+  Kategorie `download` verlangt die Funktion `downloads` (voller Kurszugang,
+  Zugang mit Capability `downloads` oder Schulregel `downloads`;
+  `free_limited` = die ersten N Downloads in Kursreihenfolge). Andere
+  Dateien verlangen ihre `required_capability`, ohne Angabe vollen
+  Kurszugang. Gesperrt: 403 `ENTITLEMENT_REQUIRED`; unbekannte,
+  unveröffentlichte Dateien und Kurse, die die Schule nicht anbietet: 404.
+* `capabilities` enthält `downloads`, sobald der Kurs veröffentlichte
+  Download-Dateien hat; `features.downloads` zeigt dann den Zugang.
+* Kursdateien sind plattformweit (Tabelle `course_file` ohne Schulbezug,
+  App-Rolle nur lesend) und liegen auf der privaten Disk unter
+  `course-files/`; die Datenbank lässt nur Pfade dort ohne `..` zu.
+  PDFs, Bilder, Audio/Video und Text kommen `inline`, andere Typen nur als
+  Anhang (`application/octet-stream`). Range-Anfragen (206) werden
+  unterstützt.
+* **Fragenbilder** tragen zusätzlich `file_id` und `download_url` (ebenfalls
+  `GET /files/{fileId}`, z. B. zum Offline-Speichern). Abrufbar, wenn die
+  Frage im freigegebenen Fragenkatalog der Person liegt (inkl. Probezugang
+  und Drip) oder sie Prüfungszugang im Kurs hat; sonst 404. `url` bleibt
+  unverändert.
 
 ## 6. Smarttrainer und Lernmodi
 
@@ -238,6 +383,13 @@ Kursinhalte ohne gültigen Zugang ergeben 403 `ENTITLEMENT_REQUIRED` oder
   Fragen mit laufender richtiger Serie fallen heraus, am Ende kommt 204.
 * Die Antworten einer Einfachauswahl sind je Person gemischt (wie im Web);
   `key` ist der Buchstabe der Anzeigeposition.
+* **Antwort-IDs sind Kennungen je Person** (`answers[].id`,
+  `selected_answer_ids`, `correct_answer_ids`, auch in Prüfung und
+  Prüfungsverlauf): UUID-förmig, für die angemeldete Person stabil, aber
+  nicht die interne ID der Antwort. Die App schickt genau die Kennung
+  zurück, die sie bekommen hat. Kennungen nicht zwischen Konten teilen oder
+  vergleichen -- für andere Personen sind sie ungültig (422 „Unbekannte
+  Antwort.“).
 * Fragen einer laufenden Prüfung sind gesperrt, auch bei einer anderen
   Schule (409 `EXAM_QUESTION_LOCKED`).
 
@@ -246,7 +398,14 @@ Kursinhalte ohne gültigen Zugang ergeben 403 `ENTITLEMENT_REQUIRED` oder
 * Einfachauswahl: `selected_answer_ids` mit genau einer ID.
 * Mehrfachauswahl: alle gewählten IDs.
 * Offene Frage: Musterantwort aus `question.model_answer` aufdecken, dann
-  `known: true/false` senden.
+  `known: true/false` senden. WP-kompatibel geht auch
+  `POST /courses/{id}/trainer/reveal {answer_token}` mit dem `answer_token`
+  aus `trainer/next` (die ausgelieferte Revision). Kurszugang und
+  Kurszugehörigkeit werden dabei neu geprüft; nur offene Fragen (sonst 422),
+  Fragen einer laufenden Prüfung → 409 `EXAM_QUESTION_LOCKED`.
+* `GET /courses/{id}/attempts/{attemptId}` liefert das Ergebnis erneut;
+  steckt die Frage gerade in einer laufenden Prüfung: 409
+  `EXAM_QUESTION_LOCKED` (keine Lösung vor der Abgabe).
 
 Die Antwort enthält Richtig/Falsch, Lösung, Erklärung, `learning_state`,
 `streak` (x von 3) und `completed` (= gefestigt). Es gelten die Regeln der
@@ -265,6 +424,11 @@ Web-App (`MasteryCalculator`).
 * Sammlungen: anlegen, umbenennen, löschen (max. 60 Zeichen, eindeutiger
   Name). Die Standard-Sammlung bleibt.
 * `context: exam` gilt für Favoriten aus der Prüfung.
+* **Fehlerliste:** `GET /courses/{id}/mistakes` listet die zuletzt falsch
+  beantworteten, noch gültigen Fragen des Kurses (gleiche Regel wie
+  `mode=wrong`: mindestens ein Versuch, aktuelle Serie 0), neueste zuerst,
+  mit Favoriten- und Sammlungsstatus, ohne Lösung. Üben:
+  `trainer/next?mode=wrong`.
 
 ## 8. Prüfungssimulation
 
@@ -275,6 +439,8 @@ POST /courses/{id}/exams {paper_id}     → 201 neu / 200 laufende fortsetzen
 GET  /exams/{id}                        → Fragen ohne Lösung, gegebene Antworten, phase, Zeit
 PUT  /exams/{id}/answers/{questionId}   → festschreiben
 POST /exams/{id}/questions/{qid}/reveal → Musterantwort (offene Fragen)
+PUT  /exams/{id}/answers/{qid}/flag     → Frage markieren {flagged: true/false}
+POST /exams/{id}/answers/{qid}/reveal   → WP-kompatibler Alias für …/questions/{qid}/reveal
 PUT  /exams/{id}/navigation             → Navigationsaufgabe abgeben (SBF See)
 POST /exams/{id}/navigation/assessment  → Selbsteinschätzung → Auswertung
 POST /exams/{id}/submit                 → abgeben → Ergebnis (Navigation fehlt: 409, außer without_navigation)
@@ -294,6 +460,12 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
   im Web erst nach dem Fragebogen (sonst 409 `EXAM_QUESTIONS_OPEN`).
 * **Zeit:** Nach Ablauf (`expires_at`) zählt keine Antwort mehr (410
   `EXAM_EXPIRED`).
+* **Markieren:** `PUT …/answers/{qid}/flag` speichert eine Markierung zur
+  Durchsicht am Server (bleibt beim Fortsetzen auf einem anderen Gerät
+  erhalten), auch für schon beantwortete Fragen, und wirkt sich nicht auf
+  die Auswertung aus. `GET /exams/{id}` liefert je Frage `flagged` und
+  `flagged_count`. Bei `…/flag` und dem Reveal-Alias darf `{qid}` auch die
+  Position der Frage sein (1-basiert).
   * Mit Navigationsteil bleibt die Prüfung für die Navigation offen: Abgabe
     bis `navigation_submit_until` (1 Min. nach Ende, nur für technische Verzögerungen), Selbsteinschätzung bis
     `navigation_assessment_until` (15 Min. nach Ende). Danach wird
@@ -319,6 +491,10 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 * `GET /courses/{id}/videos` liefert die Kapitel mit Lektionen.
   * `standalone: true` markiert eigene Kapitel (z. B. „Knoten“), die im Web
     eine eigene Kachel haben.
+  * `code` (stabiler Kapitel-Code) und `group` (Gruppenüberschrift) sind
+    optional und meist `null`.
+  * `meta`: `lessons`, `completed` und `next_lesson_id` (nächste offene
+    Lektion im Kursfluss, ohne eigenständige Kapitel).
 * `GET /videos/{id}` liefert eine Lektion mit Schritt-Galerie.
 * `PUT /videos/{id}/progress` speichert den Fortschritt:
   * `position_seconds` (Wiedergabeposition) und `completed`.
@@ -337,12 +513,90 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
   * Eigene Antworten mit Messwerten (Kurs, Zeit, Distanz, Position) prüft
     der Server mit Toleranz (`auto_checked`).
   * Sonst bewertet sich die Person selbst (`self_assessment`).
+  * `POST /navigation-tasks/{id}/parts/{partId}` ist der Weg im Format der
+    bisherigen App: Antwort und/oder dreistufige Selbstbewertung
+    (`correct`, `partly`, `wrong`; nur `correct` zählt als richtig). Eine neue
+    Antwort setzt eine frühere Selbstbewertung zurück. Der PUT-Weg speichert
+    `correct`/`incorrect` als `correct`/`wrong` mit. Die Aufgabe zeigt die
+    Bewertung je Teilfrage (`parts[].self_assessment`).
 * **Code einlösen:** `POST /coupons/redeem {code}`.
   * Groß-/Kleinschreibung und Leerzeichen am Rand sind egal; beim
     16-stelligen Standardformat auch Leerzeichen statt oder fehlende
     Bindestriche.
   * Danach `GET /courses` neu laden.
-  * `type`: `course`, `course_renewal` oder `product`.
+  * `type`: `course`, `course_renewal`, `product` oder `group_license`
+    (Lerngruppe, siehe unten).
+* **Lerngruppen (Gruppenlizenzen):** eine Gruppe gehört genau einer Schule
+  und hat eine feste Zahl Plätze für einen oder mehrere Kurse (ganzer Kurs
+  oder einzelne Funktionen, z. B. nur Prüfungssimulation).
+  * **Anlegen** durch den Betreiber (`app:learning-group-create`, siehe
+    Betrieb) oder durch Inhaber/Admins der Schule im Web-Admin-Bereich
+    (Tab „Lerngruppen“, gleiche Regeln über `LearningGroupService::create`,
+    nur Kurse, die die Schule anbietet). Dort auch: Name, Plätze (nicht
+    unter die belegten), Ende und Verwalter ändern (neuer Verwalter muss
+    aktiver Teilnehmer sein; ein neues Ende gilt auch für die Gruppen-
+    zugänge der aktiven Mitglieder), Mitglieder einsehen und entfernen,
+    Gruppe beenden -- jeweils mit Protokolleintrag (`learning_group.*`).
+    Ausbilder und Lernende haben keinen Zugriff. Die App verwaltet
+    bestehende Gruppen, legt aber keine an.
+  * **Verwalten** darf nur der eingetragene Verwalter (aktiver Teilnehmer
+    der Schule): `GET /me/groups`, `GET /me/groups/{id}`,
+    `POST /me/groups/{id}/invites {emails[]}`,
+    `DELETE /me/groups/{id}/members/{memberId}`,
+    `POST /me/groups/{id}/join-code`. Alle mit `X-Tenant-Slug`; Gruppen
+    anderer Schulen und anderer Verwalter ergeben 404.
+  * **Plätze:** aktive Mitglieder und offene Einladungen (30 Tage gültig).
+    Einladen und Beitreten sperren die Gruppe kurz, parallele Anfragen
+    können die Platzzahl nicht überziehen.
+  * **Einladung:** jede gültige Adresse bekommt eine Mail mit persönlichem
+    Code, gleich ob es ein Konto gibt -- die Antwort (`invited`, `skipped`)
+    verrät das nicht. Der Name erscheint erst nach dem Beitritt.
+  * **Beitreten:** `GET /groups/join/{token}` zeigt die Vorschau,
+    `POST /coupons/redeem` mit dem Beitrittscode (`g…`), der persönlichen
+    Einladung (`i…`, nur mit der eingeladenen Adresse) oder dem Link
+    `…/gruppe/<code>/` tritt bei. Nur Teilnehmer der Schule der Gruppe; je
+    Kurs entsteht ein Kurszugang mit `source_type = group` (bei einzelnen
+    Funktionen mit `capabilities`), gültig bis zum Ende der Gruppe.
+  * **Abrechnung über Kurscodes:** jeder Beitritt verbraucht je Kurs der
+    Gruppe einen freien Kurscode aus dem Codebestand der Schule (eigene,
+    offene, nicht gesperrte/abgelaufene reine Kurscodes genau dieses Kurses
+    -- keine Verlängerungs-, Produkt- oder plattformweiten Codes und keine
+    Kurscodes mit Zusatzprodukten), auch bei Teilzugang (`capabilities`).
+    Der Code wird in derselben Transaktion unter Zeilensperre
+    (`FOR UPDATE SKIP LOCKED`, bald ablaufende zuerst) beansprucht und als
+    eingelöst markiert (`redeemed_by_user_id` = Mitglied, Schule,
+    Zeitpunkt); der Bezug zur Mitgliedschaft steht im Protokoll
+    (`coupon.redeem_group` mit `group_id`, `member_id`).
+    **Kein Code bei eigenem Vollzugang:** hat die Person für einen Kurs der
+    Gruppe schon einen eigenen, gerade gültigen Vollzugang (`capabilities`
+    leer, nicht aus einer Gruppe -- auch nicht aus einer anderen; nicht
+    abgelaufen, gesperrt oder ausstehend), wird für diesen Kurs kein Code
+    verbraucht. Platz und Gruppenzugang entstehen trotzdem: der Gruppen-
+    zugang trägt den Kurs weiter, falls der eigene Zugang vor der Gruppe
+    endet, und endet wie jeder Gruppenzugang mit Entfernen/Gruppenende;
+    Kurs- und Verlängerungscodes verlängern weiter nur den eigenen Zugang.
+    Die Ablauf-Erinnerung schweigt, solange ein anderer Vollzugang zum Kurs
+    länger gilt. Protokoll: `learning_group.join_own_access` mit
+    `course_ids_without_code`. Fehlt für einen Kurs ohne eigenen
+    Vollzugang ein Code: 409 `GROUP_NO_CODES`, nichts wird verbraucht, eine
+    persönliche Einladung bleibt offen. Die Vorschau meldet das als
+    `codes_available: false` (`joinable: false`; berücksichtigt den eigenen
+    Vollzugang der anfragenden Person). Schon beigetretene
+    Mitglieder (auch aus der Zeit vor der Abrechnung) werden nicht
+    belastet; Entfernen und Gruppenende geben den Code nicht zurück. Die
+    Platzzahl bleibt frei wählbar; `course_codes` in `GET /me/groups[/{id}]`
+    zeigt je Kurs die freien Codes der Schule (`free`), die für die noch
+    nicht beigetretenen Plätze höchstens nötigen (`needed` = Plätze − aktive
+    Mitglieder, Momentaufnahme: Personen mit eigenem Kurszugang verbrauchen
+    keinen Code) und `sufficient`, damit die App warnen kann. Die Codes
+    teilen sich alle Gruppen und Einlösungen der Schule.
+  * **Entfernen** gibt den Platz frei und beendet genau die Gruppen-
+    zugänge der Person (`status: expired`, Enddatum jetzt -- kein
+    `revoked`, das bleibt der bewussten Sperre durch die Schule
+    vorbehalten); eigene Zugänge (Kauf, Code, Schule) bleiben, ein eigener
+    Kurscode bzw. das Freischalten durch die Schule ist danach wie gewohnt
+    möglich. Über den Beitrittscode kommt sie nicht wieder hinein, nur mit
+    einer neuen persönlichen Einladung.
 * **Datenexport:**
   * `POST /profile/export` erzeugt eine JSON-Datei mit allen Daten bei
     dieser Schule, inkl. der App-Geräte (`status: ready`, bei einem Fehler
@@ -352,6 +606,73 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
     gültig, ohne Token nutzbar (z. B. Teilen-Menü).
   * Nach 60 Minuten ist der Export abgelaufen; die Datei löscht das
     stündliche Aufräumen.
+
+### Tipps und Kunden-FAQs
+
+* `GET /tips` liefert die aktiven Tipps und Tricks nach Kategorie (dieselben
+  wie im Web, plattformweit). Schulkontext nötig, aber kein Kurszugang.
+  Je Tipp: bereinigtes `html` (relative Links absolut, Bilder nur über
+  http(s)), reiner `text`, die externen `links` und `pdf` (Anhang mit
+  signierter, kurzlebiger `url`, sonst `null`; siehe „Medien-URLs sind
+  kurzlebig“). Alte `/storage/…`-Links auf den Anhang im Text werden auf
+  die signierte Adresse umgestellt.
+* `GET /courses/{id}/faqs` liefert die veröffentlichten Kunden-FAQs eines
+  Kurses nach Kategorie mit Unterkategorien (flache Liste mit `depth` und
+  `parent_id`). Kurszugang nötig. Kombikurse (z. B. `SRC-UBI`,
+  `SBF-SEE-BIN`) zeigen zusätzlich die FAQs der enthaltenen Kurse; jede FAQ
+  erscheint nur einmal.
+* Die FAQs sind plattformweiter Inhalt (wie die Tipps, ohne Schulbezug) und
+  kommen per Import aus der alten WordPress-App:
+
+  ```sh
+  php artisan mobile-api:import-faqs storage/app/import/mobile-faqs.json
+  ```
+
+  Die Datei enthält `categories` (`source_key`, `course_code`, `name`,
+  `slug`, `parent_source_key?`, `sort_order?`) und `faqs` (`source_key`,
+  `question`, `answer` als HTML, `status?` = `draft`/`published`/`archived`,
+  `sort_order?`, `category_source_keys`). Der Import prüft erst die ganze
+  Datei, aktualisiert dann über die `source_key`s in einer Transaktion und
+  löscht nichts, was in der Datei fehlt. Er läuft über die Owner-Verbindung;
+  die App-Rolle darf die FAQ-Tabellen nur lesen.
+
+## 10a. Praxistrainer, Funk-Training, Prüfungsanmeldung
+
+Alle Endpunkte prüfen Schule (`X-Tenant-Slug`) und Kurszugang wie die
+übrigen Kursendpunkte (403 `ENTITLEMENT_REQUIRED`/`ENTITLEMENT_EXPIRED`).
+Der Lernstand ist derselbe wie im Web.
+
+* **Praxistrainer:** `GET /courses/{id}/praxis` liefert die Karten nach
+  Kategorie mit Frage, Antwort und Erklärung (Aufdecken in der App).
+  * `PUT /courses/{id}/praxis/{cardId} {status}` mit `open`, `practice`
+    oder `known`. `known` ist „Gemeistert“ im Web; „Wieder öffnen“ im Web
+    setzt auf `open`.
+  * `title` ist `null`, wenn die Unterkategorie die Lösung verraten würde.
+    Bilder haben `role`: `question` (zur Frage) oder `solution` (erst nach
+    dem Aufdecken zeigen).
+* **Funk-Training (SRC/UBI):** unter `/courses/{id}/radio`; Kurse ohne
+  Funkschein liefern 404.
+  * Überblick, Buchstabiertafel (`/spelling`), Texte (`/texts/{textId}`),
+    Vokabeln (`/vocabulary`), Praxisaufgaben (`/practice`) und
+    Musterlösungen (`/samples`).
+  * Texte: `translation` (Seefunktexte, Lösung der gewählten Richtung erst
+    nach der ersten Auswertung), `dictation` (UBI-Aufnahme) und `spelling`
+    (UBI-Abgabe, nicht auswertbar). Die Auswertung ist eine grobe
+    Wort-Übereinstimmung wie im Web; leere Felder werden nicht bewertet.
+  * Vokabeln: `POST …/vocabulary/{cardId}/answers {known, streak?}` mit
+    `Idempotency-Key`. Nach 3× „gewusst“ in Folge gilt die Karte als
+    gelernt. Mit `streak` (Stand der App) wird ein doppelt gesendeter
+    Klick erkannt (`repeated: true`).
+  * Die Gerätesimulation gibt es nur im Browser (`device_simulator.web_url`,
+    nur wenn sie für die Person freigeschaltet ist).
+* **Prüfungsanmeldung:** `GET /courses/{id}/exam-registration`, nur lesend.
+  * `mode: school` (Standard): die Schule meldet an, es gilt ihr Termintool;
+    `guides` ist leer.
+  * `mode: self`: die Anleitung der Web-Seite „Prüfung buchen“ (Gebühren,
+    Fristen, Unterlagen, Varianten, Prüfungsverbände) und `web_url`. Wer
+    schon eine Praxis-Anmeldung abgeschickt hat, behält das Termintool
+    (`uses_appointment_tool: true`).
+  * Angemeldet wird nie in der App (`registration_in_app: false`).
 
 ## 11. Fehlercodes
 
@@ -363,11 +684,14 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 | 403 | `ENTITLEMENT_REQUIRED` / `ENTITLEMENT_EXPIRED` | Webshop-Link, Code-Eingabe |
 | 403 | `FORBIDDEN` | keine Berechtigung |
 | 403 | `LINK_INVALID` | Download-Link manipuliert oder abgelaufen → Status neu laden |
+| 403 | `WEB_SESSION_DISABLED` / `WEB_SESSION_NOT_ALLOWED` | Webansicht ohne Anmeldung öffnen bzw. auf den Browser verweisen |
+| 403 | `ACCOUNT_DELETION_NOT_ALLOWED` | Plattform-Konto: an den Support verweisen |
 | 404 | `RESOURCE_NOT_FOUND` | auch für fremde Daten (keine Aussage über Existenz) |
 | 405 | `METHOD_NOT_ALLOWED` | Programmierfehler in der App |
 | 409 | `CONFLICT` | allgemeiner Konflikt bzw. dieselbe Anfrage läuft noch (`Retry-After`) |
 | 409 | `IDEMPOTENCY_KEY_REUSED` | neuen Schlüssel erzeugen |
 | 409 | `COLLECTION_NOT_DELETABLE` | Standard-Sammlung |
+| 409 | `VERSION_CONFLICT` | App-Einstellungen anderswo geändert → `details.current` übernehmen oder zusammenführen |
 | 409 | `EXAM_NOT_AVAILABLE` | Regelwerk nicht freigegeben |
 | 409 | `EXAM_ANSWER_LOCKED` | Antwort bereits festgeschrieben |
 | 409 | `EXAM_QUESTION_LOCKED` | Frage gerade in einer laufenden Prüfung (Lernmodus) |
@@ -376,6 +700,8 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 | 409 | `EXAM_NO_NAVIGATION_PART`, `EXAM_NAVIGATION_ALREADY_SUBMITTED`, `EXAM_NAVIGATION_NOT_SUBMITTED` | Phase neu laden / nachfragen |
 | 409 | `NAVIGATION_TASK_IN_EXAM` | erst Prüfung beenden (`exam_id` im Fehler) |
 | 409 | `VIDEO_NOT_AVAILABLE` | Platzhalter-Video („Video folgt“): nicht abschließbar, zur nächsten Lektion |
+| 409 | `GROUP_NOT_ACTIVE` | Lerngruppe abgelaufen oder gesperrt |
+| 409 | `GROUP_NO_CODES` | Beitritt: die Schule hat für einen Kurs der Gruppe, für den die Person keinen eigenen Vollzugang hat, keinen freien Kurscode → an Verwalter/Schule wenden |
 | 410 | `EXAM_EXPIRED` | Prüfung bzw. Ergebnis neu laden |
 | 410 | `EXPORT_EXPIRED` | neuen Export anfordern |
 | 410 | `GONE` | allgemein: nicht mehr verfügbar |
@@ -384,6 +710,8 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 | 422 | `PASSWORD_RESET_INVALID_OR_EXPIRED` | neuen Link anfordern |
 | 422 | `COUPON_INVALID` | „Code ungültig, abgelaufen oder bereits eingelöst“ |
 | 422 | `COUPON_NOT_APPLICABLE` | Meldung aus `detail` anzeigen |
+| 422 | `DELETION_CONFIRMATION_INVALID` | Löschlink ungültig, abgelaufen oder benutzt → Löschung neu beantragen |
+| 422 | `GROUP_SCOPE_UNSUPPORTED` | Gruppenumfang nicht abbildbar → Support |
 | 426 | `APP_UPDATE_REQUIRED` | Update-Hinweis mit `store_url` |
 | 429 | `RATE_LIMITED` | `Retry-After` abwarten |
 | 429 | `DAILY_LIMIT_REACHED` | Tageslimit an Fragen erreicht: `detail` anzeigen, bis Mitternacht (`Retry-After`) nicht erneut versuchen |
@@ -408,11 +736,52 @@ entscheidet aber nur anhand von `code`.
   * beendete oder abgelaufene App-Sitzungen nach 30 Tagen,
   * Idempotenz-Schlüssel nach 24 Stunden (gelesen werden sie ohnehin nur so
     lange),
-  * Exporte und ihre Dateien nach Ablauf.
-* **Konto löschen** entfernt App-Sitzungen, Exporte samt Dateien und
-  gespeicherte Antworten sofort. **Eine Schule verlassen** entfernt die
-  Exporte dieser Schule samt Dateien und die gespeicherten Antworten; die
-  App-Sitzungen gelten kontoweit und bleiben (für andere Schulen).
+  * Exporte und ihre Dateien nach Ablauf,
+  * offene Löschanträge nach Ablauf (7 Tage),
+  * Einmal-Codes der Webansicht nach einem Tag,
+  * abgelaufene Lerngruppen-Einladungen (Adresse und Code werden entfernt).
+* **Konto löschen in der App** (`POST /me/deletion-request` mit
+  `X-Tenant-Slug`) wirkt wie „Konto löschen“ im Web-Profil, nur bestätigt
+  die Person per Link aus einer Mail statt mit ihrem Passwort:
+  * Die Mail enthält einen Link auf `MOBILE_API_DELETION_CONFIRMATION_PATH`
+    der zentralen Domain mit `request_id` und `confirm_key` (7 Tage gültig,
+    nur der Hash wird gespeichert). Die App öffnet ihn als Universal-/App-Link
+    und ruft `POST /me/deletion-request/confirm` auf (ohne Token).
+  * Ohne installierte App öffnet der Link im Browser eine
+    **Bestätigungsseite** (nur zentrale Domain, Gast-Layout mit dem Branding
+    der Schule): Schule, was gelöscht wird, ob das ganze Konto entfällt,
+    Gültigkeit des Links. Das Aufrufen löscht nichts (Link-Vorschauen der
+    Mailprogramme); erst „Endgültig löschen“ (POST an denselben Pfad, CSRF)
+    löscht mit derselben Logik wie die App (`AppAccountDeletion`). Ungültige,
+    abgelaufene oder benutzte Links bekommen eine einheitliche Meldung ohne
+    Hinweis, ob es den Antrag gab. Der Link ist der Nachweis: gelöscht wird
+    das Konto aus dem Antrag, auch wenn im Browser jemand anderes angemeldet
+    ist; die eigene Web-Sitzung endet, wenn das Konto ganz entfällt.
+  * Prüfversuche sind je Link (10) und je IP (20) pro Stunde begrenzt; App
+    und Webseite teilen sich die Kontingente.
+  * Die Bestätigung löscht sofort Mitgliedschaft und alle Daten bei dieser
+    Schule und pseudonymisiert das Protokoll (`AccountErasureService::
+    leaveTenant`). Ohne weitere Mitgliedschaft wird das Konto gelöscht, alle
+    App- und Web-Sitzungen enden (`account_deleted: true`).
+  * Ein Eintrag `profile.delete` (Kanal `app` bzw. `web`, ohne
+    Personenbezug) bleibt als Nachweis im Protokoll der Schule.
+* **Konto löschen** entfernt App-Sitzungen, App-Einstellungen, Exporte samt
+  Dateien und gespeicherte Antworten sofort. **Eine Schule verlassen** entfernt die
+  Exporte, offenen Löschanträge und Webansicht-Codes dieser Schule samt
+  Dateien; die App-Sitzungen, App-Einstellungen und gespeicherten Antworten
+  (ohne Schulbezug, nach 24 Stunden ohnehin gelöscht) gelten kontoweit und
+  bleiben, solange eine weitere Mitgliedschaft besteht.
+* **Lerngruppen:** `learning_group` und `learning_group_member` haben
+  `tenant_id` und RLS je Schule; Mitglieder und Verwalter müssen per
+  Fremdschlüssel Mitglieder derselben Schule sein. Eine Schule verlassen
+  entfernt die eigenen Gruppenplätze und Einladungen an die eigene Adresse
+  (bei dieser Schule); selbst verwaltete Gruppen bleiben ohne Verwalter
+  bestehen, damit die übrigen Mitglieder ihren Zugang behalten -- einen
+  neuen Verwalter tragen Inhaber/Admins im Admin-Bereich ein. Die
+  Kontolöschung entfernt auch offene Gruppeneinladungen anderer Schulen.
+  Der Datenexport enthält eigene Plätze/Einladungen und für verwaltete
+  Gruppen nur Kennzahlen; der Export beim Vertragsende der Schule enthält
+  alle Gruppen samt Mitgliedern.
 * **Datenschutzerklärung:** Die zentrale Vorlage nennt die Lern-App
   (Geräteangaben, Speicherfristen). Schulen mit eigener Vorlage müssen den
   Absatz selbst ergänzen.
@@ -431,12 +800,83 @@ entscheidet aber nur anhand von `code`.
   * `MOBILE_API_EXPORT_TTL_MINUTES`
   * `MOBILE_API_MIN_VERSION_IOS` / `_ANDROID` und `MOBILE_API_STORE_URL_IOS`
     / `_ANDROID` (leer = keine Mindestversion)
+  * `MOBILE_API_WEB_SESSION_ENABLED` (Standard `true`): Einmal-Anmeldung
+    der Webansicht
+  * `MOBILE_API_DELETION_CONFIRMATION_PATH` (Standard `/app/konto-loeschen`):
+    Pfad des Bestätigungslinks (Web-Bestätigungsseite ohne App); muss als
+    Universal Link (iOS) bzw. App Link (Android) auf die App zeigen
+  * `MOBILE_API_IOS_APP_IDS` (`<Team-ID>.<Bundle-ID>`, kommagetrennt) sowie
+    `MOBILE_API_ANDROID_PACKAGE` und `MOBILE_API_ANDROID_SHA256_FINGERPRINTS`
+    (kommagetrennt): Die zentrale Domain liefert damit
+    `/.well-known/apple-app-site-association` (nur dieser Pfad) bzw.
+    `/.well-known/assetlinks.json` aus. Ohne Werte gibt es beide Dateien
+    nicht (404), der Link öffnet dann immer die Webseite. Die App braucht
+    zusätzlich die Associated Domain `applinks:<zentrale Domain>` bzw. einen
+    Intent-Filter mit `autoVerify` für den Pfad. Wer die Dateien statisch
+    ausliefert (Webserver/CDN), lässt die Variablen leer.
 * **Wartungsmodus** der Plattform (Superadmin-Einstellungen) gilt auch für
-  die API (503 `MAINTENANCE`); `GET /app/config` bleibt erreichbar.
+  die API (503 `MAINTENANCE`); `GET /app/config` und `GET /health` bleiben
+  erreichbar.
 * **Keine CORS-Freigabe nötig** (native Apps). Die API nutzt keine Cookies
-  und keine Sessions.
-* **Migration:** `2024_02_01_000591_create_mobile_api_tables`. Sie legt
-  `api_device_session`, `api_idempotency_key` und `api_data_export` an.
+  und keine Sessions (Ausnahme: das Einlösen des Webansicht-Codes meldet die
+  Website-Sitzung an).
+* **Migrationen:** `2024_02_01_000591_create_mobile_api_tables` legt
+  `api_device_session`, `api_idempotency_key` und `api_data_export` an,
+  `…_000592_create_mobile_customer_faq_tables` die FAQ-Tabellen (nur lesbar
+  für die App-Rolle), `…_000593_create_api_user_setting_table` die
+  App-Einstellungen, `…_000600` (Löschanträge) und `…_000601`
+  (Webansicht-Codes) mit `tenant_id` und Row-Level-Security.
+* **Zugänge und Zugriffsregeln aus WordPress übernehmen** (Owner-
+  Verbindung, idempotent über Quellschlüssel, legt keine Schulen oder Konten
+  an):
+  ```sh
+  php artisan app:import-mobile-entitlements /pfad/mobile-entitlements.json
+  php artisan app:import-mobile-access-rules /pfad/mobile-access.json
+  ```
+  Entitlements: `{"tenant_slug": "...", "entitlements": [{"email", "course_code",
+  "feature_code" ("all" oder WP-Funktion), "source_key", "status": "active",
+  "valid_from"?, "valid_until"?}]}`. Das App-Konto mit derselben E-Mail muss
+  bestehen; fehlende Mitgliedschaften werden als Lernende angelegt, gesperrte
+  oder mehrdeutige Konten brechen ab. Der Export enthält E-Mail-Adressen.
+  Regeln: `{"default_access"?, "rules": [{"tenant_slug", "course_code",
+  "feature_code", "access_type" (free/free_limited/drip), "limit_value"?,
+  "module_code"? (nur drip), "valid_from"?, "valid_until"?, "source_key"?}]}`.
+  `module_code` ist der native Modulcode. Video-Drip-Regeln brauchen die
+  WP-Kapitelkennung an den Videokapiteln und brechen sonst ab.
+* **Kursdateien aus WordPress übernehmen** (Owner-Verbindung, kopiert in
+  die private Disk, idempotent über `course_code` + `source_key`):
+  ```sh
+  php artisan app:import-mobile-course-files /pfad/manifest.json /pfad/wp-medien
+  ```
+  Manifest: `{"files": [{"course_code", "source_key", "file" (relativ zum
+  Quellverzeichnis), "category" (download/section/chart), "title",
+  "description"?, "section_key"? (nur section/chart), "required_capability"?,
+  "mime_type"?, "sha256"?, "sort_order"?, "published"? (Standard true)}]}`.
+  Dateien außerhalb des Quellverzeichnisses oder mit falscher Prüfsumme
+  brechen den ganzen Lauf ab (bereits kopierte Dateien werden entfernt).
+* **Lerngruppen anlegen und beenden** (Owner-Verbindung):
+  ```sh
+  php artisan app:learning-group-create <schul-slug> <verwalter@mail> "Segelverein" \
+      --seats=10 --course=SRC --course=FKN:exam_simulation --valid-until=2027-12-31
+  php artisan app:learning-group-revoke <gruppen-id>
+  ```
+  Der Verwalter muss aktiver Teilnehmer der Schule sein. `--course` ist ein
+  Kurscode, optional mit WP-Funktion (`question_bank`, `exam_simulation`,
+  `video_course`, `navigation_trainer`, `praxis_trainer`, `funk_training`).
+  Beenden beendet alle Gruppenzugänge (`expired`, Enddatum jetzt); offene
+  Einladungen verfallen. `--valid-until` gilt bis Tagesende deutscher Zeit.
+  Der Befehl legt nur an und verbraucht keine Codes; er nennt je Kurs die
+  freien Kurscodes der Schule (Warnung, wenn weniger als Plätze) -- jeder
+  Beitritt verbraucht je Kurs einen (außer bei eigenem Vollzugang).
+  Dasselbe geht für Inhaber/Admins im Admin-Bereich (Tab „Lerngruppen“).
+  Migrationen: `2024_02_01_000597_create_learning_group_tables`,
+  `2024_02_01_000760_end_group_entitlements_as_expired` (stellt bisher
+  widerrufene Gruppenzugänge auf `expired` um),
+  `2024_02_01_000800_grant_insert_on_learning_group_to_app_role` (die
+  App-Rolle darf Gruppen einfügen -- nur in der eigenen Schule, RLS mit
+  `WITH CHECK`; Löschen bleibt der Owner-Verbindung vorbehalten),
+  `2024_02_01_000805_add_free_course_code_index_to_coupon` (Teilindex für
+  die freien Kurscodes je Schule und Kurs).
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.
@@ -446,9 +886,9 @@ entscheidet aber nur anhand von `code`.
 * Offline-Modus und Synchronisation.
 * Push-Benachrichtigungen.
 * In-App-Käufe (Kauf bleibt im externen Webshop).
-* Funkgeräte-Simulator, Praxistrainer, Video-Quiz und Prüfungstermine
-  (eine Video-Lektion lässt sich deshalb ohne Quiz abschließen).
+* Funkgeräte-Simulator (nur Link in den Browser), Video-Quiz und
+  Prüfungstermine (eine Video-Lektion lässt sich deshalb ohne Quiz
+  abschließen).
 * Untertitel und Vorschaubilder für Videos; Seekarten fehlen bisher in den
   Navigationsaufgaben (`chart: null`), dafür braucht es die Papierkarte.
 * Registrierung in der App.
-* Konto löschen in der App (siehe Hinweis Apple oben).

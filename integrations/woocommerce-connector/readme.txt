@@ -2,7 +2,7 @@
 Requires at least: 6.5
 Requires PHP: 8.1
 Requires Plugins: woocommerce
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: Proprietary
 
 Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werden die Codes im Codebestand der verknüpften Bootsschule hinterlegt.
@@ -14,11 +14,12 @@ Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werd
 * Einkaufen kann nur, wer mit einer aktiven Bootsschule verknüpft ist: per Verknüpfungscode aus der Plattform („Mein Konto → Bootsschule verknüpfen“) oder nach Freigabe einer Neuregistrierung durch den Plattform-Betreiber.
 * Neue Kundenkonten bestätigen zuerst ihre E-Mail-Adresse (siehe unten). Erst danach meldet das Plugin sie bei der Plattform an, und erst danach ist eine Verknüpfung per Code möglich.
 * Genau ein Code-Paket je Bestellposition. Wiederholte Zustellungen nach Zeitüberschreitung erzeugen keine zusätzlichen Codes.
-* Rückerstattung oder Storno sperrt unbenutzte Codes. Bereits eingelöste Codes bleiben gültig.
+* Rückerstattung oder Storno sperrt unbenutzte Codes. Bereits eingelöste Codes bleiben gültig. Wird eine stornierte Bestellung wieder auf bezahlt gesetzt, wird nicht nachgeliefert, sondern einmalig per Bestellnotiz und Alarm-Mail gemeldet.
 * Endgültig fehlgeschlagene Zustellungen erzeugen eine Bestellnotiz, eine Alarm-Mail und den Knopf „Erneut zustellen“. Ist das Tageskontingent der Schule für Codes überschritten (`CODE_QUOTA_EXCEEDED`), wird nicht automatisch wiederholt: Nach der Freigabe durch den Superadmin „Erneut zustellen“ klicken.
 * Höchstmenge je Position kommt aus dem Katalog der Plattform (`max_quantity`, sonst 500).
-* Kurs- und Verlängerungscodes lassen sich nur für Kurse bestellen, die die verknüpfte Schule derzeit erhalten kann.
+* Kurs- und Verlängerungscodes lassen sich nur für Kurse bestellen, die die verknüpfte Schule derzeit erhalten kann (geprüft schon beim Hinzufügen zum Warenkorb).
 * Rückerstattungen nur als Betrag (ohne Positionsmenge) sperren keine Codes; das Plugin meldet sie per Bestellnotiz und Alarm-Mail.
+* Der Kontostatus aus der Plattform wird zwischengespeichert (5 Minuten, Fehlschläge 60 Sekunden). An der Kasse wird frisch geprüft, höchstens alle 10 Sekunden je Kunde; „Mein Konto → Bootsschule verknüpfen“ lädt nur nach einem Verknüpfungsversuch frisch. So können Kunden die Begrenzung der Plattform nicht aufbrauchen.
 
 == Zahlarten ==
 
@@ -55,7 +56,7 @@ Der Block-Checkout kennt kein eigenes USt-IdNr.-Feld. Dort prüft das Plugin ein
 == Betrieb ==
 
 * **Protokoll:** WooCommerce → Status → Protokolle, Quelle `bs-connector`. Protokolliert werden API-Fehler, Zustellungen, Wiederholungen, Sperren, Bestätigungsmails und Verbindungstests. Codewerte, Verknüpfungscodes, Bestätigungslinks und Geheimnisse stehen nie im Protokoll.
-* **Verbindung testen:** Knopf auf dem Einstellungs-Tab „Bootsschule“. Ruft `GET /catalog` mit den gespeicherten Einstellungen auf und zeigt das Ergebnis als Hinweis an (Recht `manage_woocommerce`).
+* **Verbindung testen:** Knopf auf dem Einstellungs-Tab „Bootsschule“. Ruft `GET /catalog` mit den gespeicherten Einstellungen auf und zeigt das Ergebnis als Hinweis an (Recht `manage_options`, wie die Einstellungen).
 * **Fehlgeschlagene Zustellungen:** WooCommerce → Bootsschul-Zustellungen listet alle Positionen mit Status „fehlgeschlagen“. Mit der Sammelaktion „Erneut zustellen“ werden sie neu angestoßen (Recht `edit_shop_orders`). Die Plattform liefert je Position höchstens einmal.
 * **Abgleich per WP-CLI:** `wp bs-connector reconcile [--days=30]` vergleicht zugestellte, fehlgeschlagene und stornierte Positionen der letzten Tage mit `GET /orders/{id}/lines/{line}` und gibt Abweichungen als Tabelle aus (fehlende Pakete, andere Paket-ID oder Menge, offene Codes trotz Storno). Der Befehl ändert nichts.
 
@@ -74,7 +75,7 @@ Text-Domain `bs-connector`, Ordner `languages/`. Die Vorlage `languages/bs-conne
     define( 'BS_CONNECTOR_INBOUND_KEY_ID', 'app' );     // = COMMERCE_OUTBOUND_KEY_ID
     define( 'BS_CONNECTOR_INBOUND_SECRET', '…' );       // = COMMERCE_OUTBOUND_SECRET
 
-   Ist eine Geheimnis-Konstante gesetzt, blendet WooCommerce → Einstellungen → Bootsschule das Feld aus. Nur aus Kompatibilität lassen sich die Geheimnisse noch dort in der Datenbank speichern (siehe „Geheimnisse“).
+   Per Konstante festgelegte Felder (auch `BS_CONNECTOR_VIES_REQUESTER`) sind unter WooCommerce → Einstellungen → Bootsschule gesperrt: Die Seite nennt nur die Konstanten, zeigt kein Eingabefeld und speichert dafür nichts. Die Seite sehen nur Administratoren mit `manage_options`. Nur aus Kompatibilität lassen sich die Werte noch dort in der Datenbank speichern (siehe „Geheimnisse“).
 3. Auf der Plattform `COMMERCE_SHOP_URL` auf die Shop-Adresse setzen.
 4. Produkte anlegen und unter „Allgemein“ die Art (Kurscode, Verlängerungscode, Produktcode) und den Kurs bzw. das Produkt auswählen. Die Auswahl kommt aus dem Katalog der Plattform.
 
@@ -84,16 +85,31 @@ Ausführliche Beschreibung: docs/commerce/README.md im Plattform-Repository.
 
 Die beiden Geheimnisse (`BS_CONNECTOR_SECRET`, `BS_CONNECTOR_INBOUND_SECRET`) gehören in `wp-config.php`, nicht in die Datenbank (Datenbank-Sicherungen, Exporte und Plugins mit Lesezugriff auf `wp_options` würden sie sonst mitnehmen).
 
-* Konstante gesetzt: Sie hat immer Vorrang, das Eingabefeld ist ausgeblendet. Eine ältere Kopie in der Datenbank wird beim nächsten Speichern der Einstellungen gelöscht.
-* Liegen Geheimnisse in der Datenbank (`bs_connector_settings`), zeigt das Backend allen mit `manage_woocommerce` einen dauerhaften Hinweis mit der Empfehlung, sie nach `wp-config.php` zu verschieben.
+* Konstante gesetzt: Sie hat immer Vorrang, das Eingabefeld ist ausgeblendet (die Einstellungsseite nennt nur die Konstante). Eine ältere Kopie in der Datenbank wird beim nächsten Speichern der Einstellungen gelöscht. Andere gesperrte Felder (Adresse, Schlüssel-IDs) behalten ihren gespeicherten Wert.
+* Liegen Geheimnisse in der Datenbank (`bs_connector_settings`), zeigt das Backend Administratoren (`manage_options`) einen dauerhaften Hinweis mit der Empfehlung, sie nach `wp-config.php` zu verschieben.
 * Einstellung „Geheimnisse aus der Datenbank erlauben“ (Standard: an, kompatibel zu bestehenden Installationen) bzw. Filter `bs_connector_allow_db_secrets`: Ist sie aus bzw. liefert der Filter `false`, werden Geheimnisse aus der Datenbank ignoriert – ohne Konstanten ist die Anbindung dann aus (Aufrufe an die Plattform unterbleiben, der Provisionierungs-Endpunkt antwortet 401).
 
     add_filter( 'bs_connector_allow_db_secrets', '__return_false' );
 
 == Datenschutz ==
 
-An die Plattform gehen nur Kontaktdaten (E-Mail, Name, Firma, Land, USt-IdNr.) und Bestellpositionen (Bestell-/Positionsnummer, Art, Menge). Zahlungsdaten bleiben im Shop.
+An die Plattform gehen nur Kontaktdaten (E-Mail, Name, Firma, Land, USt-IdNr.) und Bestellpositionen (Bestell-/Positionsnummer, Art, Menge). Zahlungsdaten bleiben im Shop. Die Plattform legt bei der Registrierung kein Benutzerkonto an, sondern erst nach Prüfung und Freigabe durch den Betreiber.
 
 Das Plugin meldet sich bei den Datenschutz-Werkzeugen von WordPress an (Werkzeuge → Personenbezogene Daten exportieren/löschen). Exportiert bzw. gelöscht werden die Nutzer-Metadaten `bs_app_user_id`, `bs_app_tenant_id`, die Merker `_bs_registered`, `_bs_provisioned`, `_bs_email_confirmed`, `_bs_email_verify_sent` und `_bs_email_verify_key` sowie das Ergebnis der USt-IdNr.-Prüfung (`_bs_vat_*`).
 
 Für die USt-IdNr.-Prüfung geht die Nummer (Länderkennung und Nummer, ggf. die eigene USt-IdNr. des Shops) an den VIES-Dienst der EU-Kommission. Bestellungen und ihr Zustellstatus bleiben für die Buchhaltung erhalten. Das Konto auf der Plattform löscht der Plattform-Betreiber.
+
+== Changelog ==
+
+= 1.3.0 =
+* Zusammenführung der Stände 1.2.0 und der parallelen Shop-Anbindung: Einstellungs-Tab „Bootsschule“, Verbindungstest und Hinweis auf Geheimnisse in der Datenbank nur noch für Administratoren (`manage_options`), nicht mehr für Shop-Manager.
+* Alle per Konstante in `wp-config.php` festgelegten Felder (Plattform-Adresse, Schlüssel-IDs, Geheimnisse, eigene USt-IdNr. für VIES) sind im Formular gesperrt und werden beim Speichern ignoriert; die Kopie eines so festgelegten Geheimnisses in der Datenbank wird beim Speichern entfernt.
+* Kontostatus zwischengespeichert (5 Minuten, Fehlschläge 60 Sekunden), frische Abfrage an der Kasse höchstens alle 10 Sekunden je Kunde.
+* Stornierte Positionen werden auch nach der Lieferung gemerkt; eine wieder bezahlte Bestellung meldet das, statt still nichts zu tun. Kurse werden schon beim Hinzufügen zum Warenkorb geprüft.
+* Die Plattform legt bei der Registrierung im Shop kein App-Konto mehr an, erst bei der Freigabe.
+
+= 1.2.0 =
+* USt-IdNr.-Prüfung über VIES, Geheimnisse nur in `wp-config.php` (Einstellung bzw. Filter `bs_connector_allow_db_secrets`, dauerhafter Hinweis bei Geheimnissen in der Datenbank), Knopf „Verbindung testen“.
+
+= 1.1.0 =
+* E-Mail-Bestätigung vor der Anmeldung bei der Plattform, Protokoll, Übersicht fehlgeschlagener Zustellungen, Abgleich per WP-CLI, Datenschutz-Werkzeuge.

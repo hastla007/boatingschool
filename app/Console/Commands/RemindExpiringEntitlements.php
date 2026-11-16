@@ -48,6 +48,15 @@ class RemindExpiringEntitlements extends Command
                 ->whereColumn('tenant_course_disabled.course_id', 'entitlement.course_id'))
             // Review-Runde 11: auch nicht an plattformweit gesperrte Konten.
             ->whereExists(fn ($q) => $q->from('app_user')->whereColumn('app_user.id', 'entitlement.user_id')->whereIn('app_user.status', ['active', 'invited']))
+            // Nicht erinnern, solange ein anderer gültiger Vollzugang zum Kurs
+            // länger trägt (z. B. Gruppenzugang neben eigenem Kurszugang): der
+            // Kurs läuft dann gar nicht ab. Läuft der andere später selbst
+            // bald ab, erinnert dessen eigene Zeile.
+            ->whereNotExists(fn ($q) => $q->from('entitlement AS other')->whereColumn('other.tenant_id', 'entitlement.tenant_id')
+                ->whereColumn('other.user_id', 'entitlement.user_id')->whereColumn('other.course_id', 'entitlement.course_id')
+                ->whereColumn('other.id', '<>', 'entitlement.id')->whereNull('other.capabilities')
+                ->where('other.status', 'active')->where('other.valid_from', '<=', now())
+                ->where(fn ($w) => $w->whereNull('other.valid_until')->orWhereColumn('other.valid_until', '>', 'entitlement.valid_until')))
             ->chunkById(200, function ($entitlements) use (&$sent, &$failed) {
                 foreach ($entitlements as $entitlement) {
                     if (! $entitlement->user || ! $entitlement->course || ! $entitlement->tenant) {

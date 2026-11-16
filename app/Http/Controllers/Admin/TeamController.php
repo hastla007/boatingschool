@@ -12,9 +12,11 @@ use App\Services\ParticipantInviter;
 use App\Support\BestEffortMail;
 use App\Support\EmailInput;
 use App\Support\TenantContext;
+use App\Support\TwoFactorCheck;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
@@ -64,7 +66,7 @@ class TeamController extends Controller
         // Runde 9), dieselben Texte und erscheinen beide bis zur Annahme
         // unter „eingeladen“ (siehe AdminDashboardController).
         if (! ParticipantInviter::mayMailAddress($tenant, $existingUser?->email ?? $validated['email'])) {
-            return back()->with('status', 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
+            return back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
         }
 
         if ($existingUser) {
@@ -194,6 +196,11 @@ class TeamController extends Controller
         if ($required && ! $request->user()->hasTwoFactor()) {
             return back()->withErrors(['two_factor' => 'Bitte richten Sie zuerst für Ihr eigenes Konto die Zwei-Faktor-Anmeldung ein.']);
         }
+        // Audit SEC-W-5: Aufheben der Pflicht schwächt das ganze Team --
+        // nur mit Passwort und (falls eingerichtet) dem eigenen zweiten Faktor.
+        if (! $required && ($error = $this->confirmOwner($request))) {
+            return back()->withErrors(['two_factor' => $error]);
+        }
 
         $tenant->branding->update(['require_team_two_factor' => $required]);
         AuditLog::record($tenant->id, $request->user()->id, 'team.two_factor_policy', 'tenant_branding', $tenant->id, null, ['required' => $required]);
@@ -201,5 +208,28 @@ class TeamController extends Controller
         return back()->with('status', $required
             ? 'Zwei-Faktor-Anmeldung ist jetzt für alle Team-Mitglieder Pflicht.'
             : 'Die 2FA-Pflicht fürs Team ist aufgehoben.');
+    }
+
+    /** Passwort und ggf. 2FA-Code der handelnden Person prüfen; Fehlermeldung oder null. */
+    private function confirmOwner(Request $request): ?string
+    {
+        $user = $request->user();
+        if (! Hash::check((string) $request->input('current_password', ''), (string) $user->password)) {
+            return 'Bitte bestätigen Sie mit Ihrem aktuellen Passwort.';
+        }
+        if (! $user->hasTwoFactor()) {
+            return null;
+        }
+        $key = 'two-factor:'.$user->id;
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            return 'Zu viele Versuche. Bitte in '.RateLimiter::availableIn($key).' Sekunden erneut versuchen.';
+        }
+        RateLimiter::hit($key, 300);
+        if (! TwoFactorCheck::verify($user, (string) $request->input('code', ''), (string) $request->input('recovery_code', ''))) {
+            return 'Der Code aus der App stimmt nicht.';
+        }
+        RateLimiter::clear($key);
+
+        return null;
     }
 }

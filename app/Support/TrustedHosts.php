@@ -47,6 +47,11 @@ class TrustedHosts
             '^(.+\.)'.preg_quote($central).'$',
         ];
 
+        // Eigener Superadmin-Host (SUPERADMIN_HOST), auch außerhalb der zentralen Domain.
+        if ($superadmin = config('app.superadmin_host')) {
+            $patterns[] = '^'.preg_quote($superadmin).'$';
+        }
+
         foreach (self::customDomains() as $domain) {
             $patterns[] = '^'.preg_quote($domain).'$';
         }

@@ -119,7 +119,7 @@ class EnvironmentHardeningTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $revision->id,
-            'answer_id' => $revision->answers->first()->id ?? null,
+            'answer_id' => $this->answerToken($learner, $revision->answers->first()->id ?? null),
             'mode' => str_repeat('x', 50),
         ]);
 

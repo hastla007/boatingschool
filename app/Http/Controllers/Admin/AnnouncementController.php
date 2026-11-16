@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\SendAnnouncementMails;
 use App\Models\AuditLog;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\TenantAnnouncement;
 use App\Models\TenantUser;
+use App\Notifications\AnnouncementPublished;
+use App\Support\BestEffortMail;
 use App\Support\MailPreferences;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
@@ -53,36 +54,53 @@ class AnnouncementController extends Controller
                 .'Bitte morgen erneut versuchen oder die Mitteilung ohne Mail veröffentlichen.']);
         }
 
+        // Audit ARC-2/QA-D-1: emailed_at wird schon beim Anlegen gesetzt
+        // (Claim vor dem Versand, zählt sofort fürs Tageslimit), die Mails
+        // gehen je Empfänger als Job über die Queue statt im Request.
+        $sendMail = $request->boolean('send_mail');
         $announcement = TenantAnnouncement::create([
             'course_id' => $validated['course_id'] ?? null,
             'title' => trim($validated['title']),
             'body' => trim($validated['body']),
             'visible_until' => $validated['visible_until'] ?? null,
             'created_by_user_id' => $request->user()->id,
+            'emailed_at' => $sendMail ? now() : null,
         ]);
 
-        // Versand im Queue-Worker (ein Job je Paket, Mandantenkontext über
-        // TenantAware); emailed_count zählen die Jobs hoch. emailed_at sofort,
-        // damit die Tagesgrenze MAILED_PER_DAY auch während des Versands greift.
         $queued = 0;
-        if ($request->boolean('send_mail')) {
+        $omitted = 0;
+        if ($sendMail) {
             // Abbestellt (§ 7 UWG): nicht anschreiben und nicht mitzählen.
-            $userIds = $this->recipients($tenant->id, $announcement->course_id)
-                ->filter(fn ($m) => MailPreferences::wants($m->user, MailPreferences::ANNOUNCEMENTS))
-                ->take(self::MAX_MAILS)->pluck('user_id')->values()->all();
-            $queued = count($userIds);
-            $announcement->update(['emailed_at' => now(), 'emailed_count' => 0]);
-            foreach (array_chunk($userIds, SendAnnouncementMails::CHUNK) as $chunk) {
-                SendAnnouncementMails::dispatch($announcement->id, $chunk);
+            $recipients = $this->recipients($tenant->id, $announcement->course_id)
+                ->filter(fn ($m) => MailPreferences::wants($m->user, MailPreferences::ANNOUNCEMENTS));
+            $omitted = max($recipients->count() - self::MAX_MAILS, 0);
+            foreach ($recipients->take(self::MAX_MAILS) as $membership) {
+                if (BestEffortMail::send(fn () => $membership->user->notify(new AnnouncementPublished($tenant, $announcement)), 'Mitteilung '.$announcement->id)) {
+                    $queued++;
+                }
             }
+            $announcement->update(['emailed_count' => $queued]);
         }
 
         AuditLog::record($tenant->id, $request->user()->id, 'announcement.create', 'tenant_announcement', $announcement->id, null, [
             'title' => $announcement->title, 'course_id' => $announcement->course_id, 'emailed' => $queued,
-        ]);
+        ] + ($omitted > 0 ? ['omitted' => $omitted] : []));
 
         return redirect()->route('admin.announcements.index')
-            ->with('status', 'Mitteilung veröffentlicht'.($request->boolean('send_mail') ? " und wird an {$queued} ".($queued === 1 ? 'Person' : 'Personen').' verschickt.' : '.'));
+            ->with('status', 'Mitteilung veröffentlicht'.($sendMail ? self::mailStatus($queued, $omitted, self::MAX_MAILS) : '.'));
+    }
+
+    /** Rückmeldung zum Mailversand, nennt eine Kürzung bei der Höchstgrenze. */
+    public static function mailStatus(int $queued, int $omitted, int $max): string
+    {
+        $status = $queued === 1
+            ? ', die Mail an 1 Person wird im Hintergrund verschickt.'
+            : ", die Mails an {$queued} Personen werden im Hintergrund verschickt.";
+        if ($omitted > 0) {
+            $status .= " Höchstens {$max} Mails je Mitteilung: {$omitted} ".($omitted === 1 ? 'weitere Person wurde' : 'weitere Personen wurden').' nicht angeschrieben.';
+        }
+
+        return $status;
     }
 
     public function destroy(Request $request, TenantContext $tenantContext, TenantAnnouncement $announcement): RedirectResponse

@@ -3,10 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Services\BackupVerifier;
-use App\Support\BackupEncryption;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -25,7 +23,7 @@ class VerifyBackup extends Command
 
     public function handle(BackupVerifier $verifier): int
     {
-        $dir = $this->option('path') ?: BackupApplication::latestBackupDirectory();
+        $dir = $this->option('path') ?: self::latestBackupDirectory();
         if (! $dir || ! is_file($dir.'/manifest.json')) {
             $this->error('Keine vollständige Sicherung gefunden (manifest.json fehlt).');
 
@@ -58,26 +56,9 @@ class VerifyBackup extends Command
         $created = false;
 
         try {
+            // Lokale Sicherungen liegen unverschlüsselt im 0700-Ordner; nur die
+            // externen Kopien sind verschlüsselt (BACKUP_ENCRYPTION_PUBLIC_KEY).
             $dump = $dir.'/'.$dumpFile;
-            if ($mode = BackupEncryption::modeOfFile($dumpFile)) {
-                $plain = $workDir.'/database.dump';
-                $command = BackupEncryption::decryptCommand($mode, $dump, $plain);
-                if (! $command) {
-                    // Der private Schlüssel gehört bewusst nicht auf den Server.
-                    $this->warn("Sicherung ist mit {$mode} verschlüsselt und hier kein privater Schlüssel eingerichtet "
-                        .'(BACKUP_AGE_IDENTITY bzw. BACKUP_GPG_DECRYPT): nur Prüfsummen geprüft, keine Probe-Wiederherstellung. '
-                        .'Die Probe-Wiederherstellung auf einem Rechner mit Schlüssel ausführen (deploy/README.md).');
-
-                    return self::SUCCESS;
-                }
-                $result = Process::timeout(3600)->run($command);
-                if ($result->failed() || ! is_file($plain)) {
-                    $this->error("Entschlüsseln fehlgeschlagen ({$mode}): ".trim($result->errorOutput()));
-
-                    return self::FAILURE;
-                }
-                $dump = $plain;
-            }
 
             try {
                 $verifier->createDatabase($database);
@@ -151,5 +132,19 @@ class VerifyBackup extends Command
         $this->info('Sicherung lässt sich wiederherstellen.');
 
         return self::SUCCESS;
+    }
+
+    /** Neuester vollständiger täglicher Sicherungsordner (ohne Sicherungen vor einem Deploy). */
+    public static function latestBackupDirectory(): ?string
+    {
+        $base = rtrim((string) config('backup.path'), '/');
+        if (! is_dir($base)) {
+            return null;
+        }
+
+        return collect(File::directories($base))
+            ->filter(fn ($dir) => is_file($dir.'/manifest.json'))
+            ->filter(fn ($dir) => preg_match('/^\d{4}-\d{2}-\d{2}_\d{6}$/', basename($dir)))
+            ->sortBy(fn ($dir) => basename($dir))->last();
     }
 }

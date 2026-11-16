@@ -88,7 +88,7 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
 
     public function test_inviting_an_existing_account_still_succeeds_when_the_invite_mail_fails(): void
     {
-        Notification::shouldReceive('send')->once()->andThrow(new RuntimeException('SMTP down'));
+        Notification::shouldReceive('sendNow')->once()->andThrow(new RuntimeException('SMTP down'));
 
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');

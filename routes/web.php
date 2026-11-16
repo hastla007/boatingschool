@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\CoursePromoBannerController;
 use App\Http\Controllers\Admin\CourseSelectionController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\InactiveLearnerController;
+use App\Http\Controllers\Admin\LearningGroupController;
 use App\Http\Controllers\Admin\ParticipantController;
 use App\Http\Controllers\Admin\ParticipantToolsController;
 use App\Http\Controllers\Admin\PraxisExamAppointmentController as AdminPraxisExamAppointmentController;
@@ -21,6 +22,7 @@ use App\Http\Controllers\Admin\TeamController;
 use App\Http\Controllers\Admin\TenantCourseLocationController;
 use App\Http\Controllers\Admin\WillkommensboxLabelController;
 use App\Http\Controllers\Admin\WillkommensboxOrderController;
+use App\Http\Controllers\AppAccountDeletionController;
 use App\Http\Controllers\CouponRedeemController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DashboardController;
@@ -48,6 +50,7 @@ use App\Http\Controllers\TipController;
 use App\Http\Controllers\VideoCourseController;
 use App\Http\Controllers\VideoQuizController;
 use App\Http\Controllers\WillkommensboxController;
+use App\Services\AppAccountDeletion;
 use App\Support\TenantContext;
 use Illuminate\Support\Facades\Route;
 
@@ -87,6 +90,12 @@ Route::post('/mail/abmelden/{user}/{category}', [MailPreferenceController::class
 // „Als Nutzer ansehen“ (Support): Einmal-Link des Superadmins einlösen bzw. beenden.
 Route::get('/impersonate/{token}', [ImpersonationController::class, 'consume'])->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:20,1')->name('impersonate.consume');
 Route::post('/impersonate/stop', [ImpersonationController::class, 'stop'])->middleware('auth')->name('impersonate.stop');
+
+// Bestätigungslink der Kontolöschung aus der App, wenn die App ihn nicht als
+// Universal-/App-Link öffnet (nur zentrale Domain, siehe ResolveTenant).
+// GET zeigt nur an, erst das Formular löscht.
+Route::get(AppAccountDeletion::confirmationPath(), [AppAccountDeletionController::class, 'show'])->middleware('throttle:20,60,app-deletion-web')->name('app-account-deletion.show');
+Route::post(AppAccountDeletion::confirmationPath(), [AppAccountDeletionController::class, 'confirm'])->middleware('throttle:20,60,app-deletion-web')->name('app-account-deletion.confirm');
 
 // Datenrechte (Art. 15/17/20 DSGVO): Export und Kontolöschung auch mit
 // gesperrter Mitgliedschaft, gesperrter Schule oder unbestätigter E-Mail
@@ -310,6 +319,15 @@ Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admi
     Route::patch('/team/two-factor-policy', [TeamController::class, 'twoFactorPolicy'])->name('team.two-factor-policy');
 
     Route::patch('/addons', [AddonController::class, 'update'])->name('addons.update');
+
+    // Lerngruppen (Gruppenlizenzen der App): Liste im Tab "Lerngruppen", hier Anlegen und Verwalten.
+    Route::get('/learning-groups/create', [LearningGroupController::class, 'create'])->name('learning-groups.create');
+    Route::post('/learning-groups', [LearningGroupController::class, 'store'])->middleware('throttle:10,1,learning-groups-create')->name('learning-groups.store');
+    Route::get('/learning-groups/{learningGroup}', [LearningGroupController::class, 'show'])->whereUuid('learningGroup')->name('learning-groups.show');
+    Route::patch('/learning-groups/{learningGroup}', [LearningGroupController::class, 'update'])->whereUuid('learningGroup')->name('learning-groups.update');
+    Route::post('/learning-groups/{learningGroup}/revoke', [LearningGroupController::class, 'revoke'])->whereUuid('learningGroup')->name('learning-groups.revoke');
+    Route::delete('/learning-groups/{learningGroup}/members/{member}', [LearningGroupController::class, 'removeMember'])
+        ->whereUuid(['learningGroup', 'member'])->name('learning-groups.members.destroy');
 
     Route::post('/course-promo-banners', [CoursePromoBannerController::class, 'store'])->name('course-promo-banners.store');
     Route::patch('/course-promo-banners/{coursePromoBanner}', [CoursePromoBannerController::class, 'update'])->name('course-promo-banners.update');

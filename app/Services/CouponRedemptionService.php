@@ -76,8 +76,8 @@ class CouponRedemptionService
 
         // Bestätigung an den Lernenden (auch bei Zuweisung durch die Schule),
         // erst nach dem Commit und ohne den Vorgang bei einem Mailfehler
-        // abzubrechen.
-        BestEffortMail::send(fn () => $user->notify(new CouponRedeemed($result)), 'Zugangscode eingelöst '.$coupon->id);
+        // abzubrechen. Direkt (notifyNow), nicht über die Queue: einzelne Mail.
+        BestEffortMail::send(fn () => $user->notifyNow(new CouponRedeemed($result)), 'Zugangscode eingelöst '.$coupon->id);
 
         return $result;
     }
@@ -148,9 +148,13 @@ class CouponRedemptionService
         // der stündliche Job lief) wird reaktiviert statt eine zweite Zeile
         // für denselben Kurs anzulegen. hasAccess() oben hat einen
         // aktuell gültigen Zugang bereits ausgeschlossen.
+        // QA-L-1: nur volle, eigene Zugänge reaktivieren -- ein Teilzugang
+        // (capabilities) bliebe sonst eingeschränkt, obwohl der Code verbraucht
+        // ist; ein Gruppenzugang gehört zur Lerngruppe. Dann neue Vollzeile.
         $suspended = Entitlement::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
             ->where('course_id', $course->id)
+            ->ownFullAccess()
             ->whereIn('status', ['suspended', 'expired', 'active'])
             ->orderByRaw('valid_until desc nulls first')
             ->first();
@@ -169,7 +173,9 @@ class CouponRedemptionService
                 : ($suspended->valid_until->greaterThan($newValidUntil) ? $suspended->valid_until : $newValidUntil);
 
             $suspended->update([
-                'valid_from' => $now,
+                // QA-L-5: ein früherer Zugangsbeginn bleibt (sonst beginnen
+                // Drip-Sperren nach jeder Reaktivierung von vorn).
+                'valid_from' => $suspended->valid_from !== null && $suspended->valid_from->lte($now) ? $suspended->valid_from : $now,
                 'valid_until' => $validUntil,
                 'status' => 'active',
                 'source_type' => 'coupon',
@@ -231,10 +237,15 @@ class CouponRedemptionService
         $now = now();
         $days = $tenant->branding->course_validity_days;
 
+        // QA-L-1: nur volle, eigene Zugänge verlängern (Teil- und Gruppen-
+        // zugänge nicht, siehe Entitlement::scopeOwnFullAccess()); unbefristet
+        // zuerst, dann das späteste Enddatum. Ohne solchen Zugang entsteht
+        // unten eine neue Vollzeile.
         $entitlement = Entitlement::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
             ->where('course_id', $course->id)
-            ->orderByDesc('valid_until')
+            ->ownFullAccess()
+            ->orderByRaw('valid_until desc nulls first')
             ->first();
 
         // Bug-Review R4-7: anders als "suspended" (siehe Kommentar oben) soll

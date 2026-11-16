@@ -77,6 +77,8 @@
                         :style="tab === 'coupons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Zugangscodes</button>
                 <button type="button" role="tab" :aria-selected="(tab === 'courses').toString()" data-tab="courses" @click="tab = 'courses'" :class="tab === 'courses' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                         :style="tab === 'courses' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursauswahl</button>
+                <button type="button" role="tab" :aria-selected="(tab === 'learning-groups').toString()" data-tab="learning-groups" @click="tab = 'learning-groups'" :class="tab === 'learning-groups' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                        :style="tab === 'learning-groups' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Lerngruppen</button>
             @endif
             <button type="button" role="tab" :aria-selected="(tab === 'orte').toString()" data-tab="orte" @click="tab = 'orte'" :class="tab === 'orte' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                     :style="tab === 'orte' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Orte</button>
@@ -117,6 +119,9 @@
             </div>
             <div x-show="tab === 'courses'" style="display: none">
                 @include('admin.tabs.courses')
+            </div>
+            <div x-show="tab === 'learning-groups'" style="display: none">
+                @include('admin.tabs.learning-groups')
             </div>
         @endif
         <div x-show="tab === 'orte'" style="display: none">

@@ -60,7 +60,9 @@ Schedule::command('app:expire-abandoned-exam-sessions')->hourly()->onOneServer()
 Schedule::command('app:backup')->dailyAt('03:15')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping(180)
     // Eigener Prozess: der Dump blockiert die übrigen Aufgaben nicht.
     ->runInBackground()
-    ->onFailure(OpsAlert::forTask('Datensicherung (app:backup)'));
+    ->onFailure(OpsAlert::forTask('Datensicherung (app:backup)'))
+    // Optionaler Totmann-Ping je erfolgreicher Sicherung (OPS_BACKUP_HEARTBEAT_URL).
+    ->pingOnSuccessIf(filled(config('backup.heartbeat_url')), (string) config('backup.heartbeat_url'));
 // Monatlich: neueste Sicherung probeweise in eine temporäre Datenbank
 // zurückspielen (Owner-Rolle braucht CREATEDB, siehe deploy/README.md).
 Schedule::command('app:backup:verify')->monthlyOn(2, '04:40')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping(180)
@@ -76,5 +78,8 @@ Schedule::command('app:check-production')->dailyAt('07:40')->timezone('Europe/Be
 Schedule::call(fn () => OpsAlert::pruneExpiredCache())->name('prune-expired-cache')->dailyAt('04:20')->timezone('Europe/Berlin')->onOneServer();
 
 // Go-live B5: Lebenszeichen des Schedulers für app:check-production.
+// Betriebsaudit OPS-2: zusätzlich Ping an einen externen Heartbeat-Dienst
+// (OPS_HEARTBEAT_URL) -- steht der Scheduler, alarmiert dieser von außen.
 Schedule::call(fn () => Cache::forever(ProductionReadiness::SCHEDULER_HEARTBEAT_KEY, now()->timestamp))
-    ->everyMinute()->name('ops:scheduler-heartbeat')->onOneServer();
+    ->everyMinute()->name('ops:scheduler-heartbeat')->onOneServer()
+    ->pingOnSuccessIf(filled(config('app.ops_heartbeat_url')), (string) config('app.ops_heartbeat_url'));

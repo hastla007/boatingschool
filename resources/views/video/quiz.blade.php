@@ -26,13 +26,13 @@
         </div>
 
         @foreach ($revision->media as $media)
-            <img src="{{ $media->storage_path }}" alt="{{ $media->alt_text }}" class="rounded-lg mb-4 max-h-64 mx-auto">
+            <img src="{{ \App\Support\QuestionMedia::url($media) }}" alt="{{ $media->alt_text }}" class="rounded-lg mb-4 max-h-64 mx-auto">
         @endforeach
 
         <h3 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $revision->question_text }}</h3>
 
         @if ($revision->question_type === 'multi_choice')
-            <form method="POST" action="{{ route('video.quiz.answer', $linkParams(['position' => $position])) }}" x-data="{ selected: {{ json_encode($selectedAnswerIds ?? []) }} }">
+            <form method="POST" action="{{ route('video.quiz.answer', $linkParams(['position' => $position])) }}" x-data="{ selected: {{ json_encode(\App\Support\AnswerToken::mapMany(auth()->id(), $selectedAnswerIds ?? [])) }} }">
                 @csrf
                 <input type="hidden" name="revision_id" value="{{ $revision->id }}">
                 <input type="hidden" name="started_at_ms" value="{{ $startedAt }}">
@@ -58,7 +58,7 @@
                             }
                         @endphp
                         <label class="flex items-center gap-3 border rounded-xl px-4 py-3 cursor-pointer transition {{ $state }}">
-                            <input type="checkbox" name="answer_ids[]" value="{{ $answer->id }}" x-model="selected"
+                            <input type="checkbox" name="answer_ids[]" value="{{ \App\Support\AnswerToken::for(auth()->id(), $answer->id) }}" x-model="selected"
                                    @checked($wasSelected) {{ $answered ? 'disabled' : '' }} class="shrink-0">
                             <span class="text-slate-700 dark:text-slate-200 flex-1">{{ $answer->answer_text }}</span>
                             @if ($showCorrectIcon)
@@ -113,7 +113,7 @@
                 </template>
             </div>
         @else
-            <form method="POST" action="{{ route('video.quiz.answer', $linkParams(['position' => $position])) }}" x-data="{ selected: {{ $selectedAnswerId ? "'{$selectedAnswerId}'" : 'null' }} }">
+            <form method="POST" action="{{ route('video.quiz.answer', $linkParams(['position' => $position])) }}" x-data="{ selected: {{ $selectedAnswerId ? "'".\App\Support\AnswerToken::for(auth()->id(), $selectedAnswerId)."'" : 'null' }} }">
                 @csrf
                 <input type="hidden" name="revision_id" value="{{ $revision->id }}">
                 <input type="hidden" name="started_at_ms" value="{{ $startedAt }}">
@@ -135,7 +135,7 @@
                             }
                         @endphp
                         <label class="flex items-center gap-3 border rounded-xl px-4 py-3 cursor-pointer transition {{ $state }}">
-                            <input type="radio" name="answer_id" value="{{ $answer->id }}" x-model="selected"
+                            <input type="radio" name="answer_id" value="{{ \App\Support\AnswerToken::for(auth()->id(), $answer->id) }}" x-model="selected"
                                    @checked($answer->id === $selectedAnswerId) {{ $answered ? 'disabled' : '' }} class="shrink-0">
                             <span class="text-slate-700 dark:text-slate-200 flex-1">{{ $answer->answer_text }}</span>
                             @if ($showCorrectIcon)

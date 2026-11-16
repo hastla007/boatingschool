@@ -5,17 +5,39 @@
  *
  * Die Geheimnisse gehören in wp-config.php: BS_CONNECTOR_APP_URL,
  * BS_CONNECTOR_KEY_ID, BS_CONNECTOR_SECRET, BS_CONNECTOR_INBOUND_KEY_ID,
- * BS_CONNECTOR_INBOUND_SECRET. Ist eine Geheimnis-Konstante gesetzt, blendet
- * die Einstellungsseite das Feld aus. Liegen Geheimnisse (noch) in der
- * Datenbank, zeigt das Backend einen dauerhaften Hinweis; mit der Einstellung
+ * BS_CONNECTOR_INBOUND_SECRET (optional BS_CONNECTOR_VIES_REQUESTER). Per
+ * Konstante festgelegte Felder sind im Formular gesperrt: Sie erscheinen nur
+ * als Hinweis (ohne Eingabefeld, Geheimnisse ohne Wert) und werden beim
+ * Speichern ignoriert; eine Kopie eines solchen Geheimnisses in der Datenbank
+ * wird beim Speichern entfernt. Liegen Geheimnisse (noch) in der Datenbank,
+ * zeigt das Backend einen dauerhaften Hinweis; mit der Einstellung
  * „Geheimnisse aus der Datenbank erlauben“ = nein bzw. dem Filter
  * bs_connector_allow_db_secrets (false) werden sie ignoriert.
+ *
+ * Nur für Administratoren (manage_options): WooCommerce zeigt seine
+ * Einstellungen schon Shop-Managern (manage_woocommerce) -- die dürften sonst
+ * die Plattform-Adresse umbiegen und Lieferaufträge samt Geheimnis an einen
+ * fremden Server schicken. Das gilt auch für den Hinweis auf Geheimnisse in
+ * der Datenbank und den Verbindungstest.
  */
 defined('ABSPATH') || defined('BS_CONNECTOR_TESTING') || exit;
 
 final class BS_Settings
 {
     const OPTION = 'bs_connector_settings';
+
+    /** Berechtigung für Tab, Anzeige, Speichern, Hinweise und Verbindungstest. */
+    const CAPABILITY = 'manage_options';
+
+    /** Felder, die eine wp-config.php-Konstante festlegen kann. */
+    const CONSTANTS = [
+        'app_url' => 'BS_CONNECTOR_APP_URL',
+        'key_id' => 'BS_CONNECTOR_KEY_ID',
+        'secret' => 'BS_CONNECTOR_SECRET',
+        'inbound_key_id' => 'BS_CONNECTOR_INBOUND_KEY_ID',
+        'inbound_secret' => 'BS_CONNECTOR_INBOUND_SECRET',
+        'vies_requester' => 'BS_CONNECTOR_VIES_REQUESTER',
+    ];
 
     /** Geheimnisse: Einstellungs-Schlüssel => Konstante in wp-config.php. */
     const SECRETS = ['secret' => 'BS_CONNECTOR_SECRET', 'inbound_secret' => 'BS_CONNECTOR_INBOUND_SECRET'];
@@ -111,20 +133,34 @@ final class BS_Settings
     {
         add_filter('woocommerce_settings_tabs_array', [__CLASS__, 'add_tab'], 60);
         add_action('woocommerce_settings_tabs_bs_connector', [__CLASS__, 'render']);
+        add_action('woocommerce_settings_tabs_bs_connector', [__CLASS__, 'render_connection_test'], 20);
         add_action('woocommerce_update_options_bs_connector', [__CLASS__, 'save']);
         add_action('admin_notices', [__CLASS__, 'secrets_notice']);
     }
 
+    public static function can_manage(): bool
+    {
+        return current_user_can(self::CAPABILITY);
+    }
+
+    /** In wp-config.php festgelegt: im Formular gesperrt, beim Speichern ignoriert. */
+    public static function is_locked(string $key): bool
+    {
+        return isset(self::CONSTANTS[$key]) && defined(self::CONSTANTS[$key]);
+    }
+
     public static function add_tab(array $tabs): array
     {
-        $tabs['bs_connector'] = __('Bootsschule', 'bs-connector');
+        if (self::can_manage()) {
+            $tabs['bs_connector'] = __('Bootsschule', 'bs-connector');
+        }
 
         return $tabs;
     }
 
     private static function fields(): array
     {
-        $fields = [
+        return [
             ['title' => __('Anbindung an die Bootsschul-Plattform', 'bs-connector'), 'type' => 'title', 'id' => 'bs_connector_section', 'desc' => __('Gekaufte Codes werden nach der Zahlung dem Codebestand der verknüpften Bootsschule gutgeschrieben. Werte in wp-config.php haben Vorrang.', 'bs-connector')],
             ['title' => __('Adresse der Plattform', 'bs-connector'), 'id' => self::OPTION.'[app_url]', 'type' => 'url', 'placeholder' => 'https://app.example.de'],
             ['title' => __('Schlüssel-ID (Shop → App)', 'bs-connector'), 'id' => self::OPTION.'[key_id]', 'type' => 'text', 'default' => 'shop'],
@@ -139,28 +175,74 @@ final class BS_Settings
             ['title' => __('Gesperrte Zahlarten', 'bs-connector'), 'id' => self::OPTION.'[blocked_gateways]', 'type' => 'text', 'default' => 'cod', 'desc' => __('IDs der Zahlarten ohne bestätigten Zahlungseingang, kommagetrennt (z. B. cod für Nachnahme). Sie werden für Bootsschul-Codes an der Kasse ausgeblendet; Bestellungen damit werden erst nach Zahlungseingang zugestellt.', 'bs-connector')],
             ['type' => 'sectionend', 'id' => 'bs_connector_section'],
         ];
-
-        return array_values(array_filter($fields));
     }
 
-    /** Geheimnis-Feld; null (ausgeblendet), wenn die Konstante in wp-config.php gesetzt ist. */
-    private static function secret_field(string $key, string $title): ?array
+    /**
+     * Geheimnis-Feld (nie mit Wert). Ist die Konstante in wp-config.php
+     * gesetzt, blendet editable_fields() es aus.
+     */
+    private static function secret_field(string $key, string $title): array
     {
-        if (defined(self::SECRETS[$key])) {
-            return null;
+        return ['title' => $title, 'id' => self::OPTION.'['.$key.']', 'type' => 'password', 'value' => '', 'placeholder' => self::secret_placeholder($key), 'desc' => sprintf( /* translators: %s: Name der Konstante */ __('Empfohlen: stattdessen %s in wp-config.php setzen.', 'bs-connector'), self::SECRETS[$key])];
+    }
+
+    /**
+     * Felder ohne die per Konstante festgelegten: diese stehen nur als Hinweis
+     * im Formular (ohne Eingabefeld, Geheimnisse ohne Wert) und werden nie
+     * gespeichert.
+     */
+    private static function editable_fields(): array
+    {
+        $fields = [];
+        foreach (self::fields() as $field) {
+            $key = preg_match('/\[(\w+)\]$/', (string) ($field['id'] ?? ''), $m) ? $m[1] : null;
+            if ($key !== null && self::is_locked($key)) {
+                continue;
+            }
+            $fields[] = $field;
         }
 
-        return ['title' => $title, 'id' => self::OPTION.'['.$key.']', 'type' => 'password', 'value' => '', 'placeholder' => self::secret_placeholder($key), 'desc' => sprintf( /* translators: %s: Name der Konstante */ __('Empfohlen: stattdessen %s in wp-config.php setzen.', 'bs-connector'), self::SECRETS[$key])];
+        return $fields;
+    }
+
+    /** Hinweis auf Werte aus wp-config.php (ohne Geheimnisse anzuzeigen). */
+    private static function locked_notice(): array
+    {
+        $locked = array_values(array_filter(array_keys(self::CONSTANTS), [__CLASS__, 'is_locked']));
+        if ($locked === []) {
+            return [];
+        }
+        $names = array_map(static fn (string $key): string => self::CONSTANTS[$key], $locked);
+
+        return [[
+            'title' => __('In wp-config.php festgelegt', 'bs-connector'),
+            'type' => 'title',
+            'id' => 'bs_connector_locked',
+            'desc' => sprintf(
+                /* translators: %s: Namen der Konstanten */
+                __('Diese Werte sind hier nicht änderbar: %s', 'bs-connector'),
+                implode(', ', $names)
+            ),
+        ], ['type' => 'sectionend', 'id' => 'bs_connector_locked']];
     }
 
     public static function render(): void
     {
-        woocommerce_admin_fields(self::fields());
-        if (current_user_can('manage_woocommerce')) {
-            // Prüft Adresse, Schlüssel und Geheimnis mit GET /catalog (gespeicherte Werte).
-            echo '<p><a class="button" href="'.esc_url(BS_Admin::connection_test_url()).'">'.esc_html__('Verbindung testen', 'bs-connector').'</a> ';
-            echo '<span class="description">'.esc_html__('Verwendet die gespeicherten Einstellungen – vorher speichern.', 'bs-connector').'</span></p>';
+        if (! self::can_manage()) {
+            return;
         }
+        woocommerce_admin_fields(array_merge(self::locked_notice(), self::editable_fields()));
+    }
+
+    /** Knopf „Verbindung testen“ unter dem Formular (nur mit CAPABILITY). */
+    public static function render_connection_test(): void
+    {
+        if (! self::can_manage()) {
+            return;
+        }
+        // Prüft Adresse, Schlüssel und Geheimnis mit GET /catalog (gespeicherte Werte).
+        echo '<p><a class="button" href="'.esc_url(BS_Admin::connection_test_url()).'">'.esc_html__('Verbindung testen', 'bs-connector').'</a> ';
+        echo '<span class="description">'.esc_html__('Verwendet die gespeicherten Einstellungen – vorher speichern.', 'bs-connector').'</span></p>';
     }
 
     /** Gespeicherte Geheimnisse nie zurück ins Formular schreiben. */
@@ -173,21 +255,35 @@ final class BS_Settings
 
     public static function save(): void
     {
-        // Leeres Geheimnis-Feld = unverändert lassen.
+        if (! self::can_manage()) {
+            return;
+        }
         $stored = (array) get_option(self::OPTION, []);
+        // Per Konstante festgelegt: nie aus dem Formular übernehmen.
+        foreach (array_keys(self::CONSTANTS) as $key) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce prüft die Nonce der Einstellungsseite.
+            if (self::is_locked($key) && isset($_POST[self::OPTION]) && is_array($_POST[self::OPTION])) {
+                unset($_POST[self::OPTION][$key]);
+            }
+        }
+        // Leeres Geheimnis-Feld = unverändert lassen.
         foreach (array_keys(self::SECRETS) as $key) {
+            if (self::is_locked($key)) {
+                continue;
+            }
             // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce prüft die Nonce der Einstellungsseite.
             if (isset($_POST[self::OPTION]) && is_array($_POST[self::OPTION]) && ($_POST[self::OPTION][$key] ?? '') === '' && ! empty($stored[$key])) {
                 $_POST[self::OPTION][$key] = wp_slash($stored[$key]); // WooCommerce entfernt die Maskierung beim Speichern.
             }
         }
-        woocommerce_update_options(self::fields());
-        // Steht das Geheimnis in wp-config.php, wird die Kopie in der Datenbank
-        // nie verwendet: beim Speichern entfernen.
+        woocommerce_update_options(self::editable_fields());
+        // Gesperrte Felder behalten ihren gespeicherten Wert -- außer
+        // Geheimnissen: Steht das Geheimnis in wp-config.php, wird die Kopie in
+        // der Datenbank nie verwendet, also beim Speichern entfernen.
         $saved = (array) get_option(self::OPTION, []);
         $changed = false;
-        foreach (self::SECRETS as $key => $constant) {
-            if (defined($constant) && isset($saved[$key])) {
+        foreach (array_keys(self::SECRETS) as $key) {
+            if (self::is_locked($key) && isset($saved[$key])) {
                 unset($saved[$key]);
                 $changed = true;
             }
@@ -200,11 +296,11 @@ final class BS_Settings
 
     /**
      * Dauerhafter Hinweis im Backend, solange Geheimnisse in der Datenbank
-     * liegen (nicht ausblendbar, nur für manage_woocommerce).
+     * liegen (nicht ausblendbar, nur mit CAPABILITY).
      */
     public static function secrets_notice(): void
     {
-        if (! current_user_can('manage_woocommerce')) {
+        if (! self::can_manage()) {
             return;
         }
         $stored = self::stored_secrets();
@@ -212,7 +308,7 @@ final class BS_Settings
             return;
         }
         $constants = implode(', ', array_map(static fn ($key) => self::SECRETS[$key], $stored));
-        $all_defined = array_filter($stored, static fn ($key) => ! defined(self::SECRETS[$key])) === [];
+        $all_defined = array_filter($stored, static fn ($key) => ! self::is_locked($key)) === [];
         if ($all_defined) {
             $state = __('Sie werden nicht verwendet, weil die Konstanten in wp-config.php gesetzt sind. Speichern Sie die Einstellungen unter WooCommerce → Einstellungen → Bootsschule einmal, um sie aus der Datenbank zu entfernen.', 'bs-connector');
         } elseif (! self::allow_db_secrets()) {

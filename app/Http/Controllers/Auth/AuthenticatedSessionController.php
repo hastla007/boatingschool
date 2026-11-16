@@ -74,10 +74,14 @@ class AuthenticatedSessionController extends Controller
             // umgeleitet hätte) entfällt dafür -- stattdessen direkt
             // dorthin, mit einer erklärenden Meldung statt eines
             // verwirrenden Doppel-Redirects.
-            if (! TenantPath::isCentralRoot($request)) {
+            // Mit SUPERADMIN_HOST gilt dasselbe für diesen eigenen Host.
+            $superadminHost = config('app.superadmin_host');
+            if ($superadminHost ? strtolower($request->getHost()) !== $superadminHost : ! TenantPath::isCentralRoot($request)) {
                 return redirect()
-                    ->to($this->centralDomainUrl($request, route('login', absolute: false)))
-                    ->with('status', 'Der Superadmin-Bereich ist nur über die zentrale Domain erreichbar – bitte melde dich hier noch einmal an.');
+                    ->to($this->centralDomainUrl($request, route('login', absolute: false), $superadminHost))
+                    ->with('status', $superadminHost
+                        ? 'Der Superadmin-Bereich ist nur über seine eigene Adresse erreichbar – bitte melde dich hier noch einmal an.'
+                        : 'Der Superadmin-Bereich ist nur über die zentrale Domain erreichbar – bitte melde dich hier noch einmal an.');
             }
 
             return redirect()->intended(route('superadmin.dashboard', absolute: false));
@@ -143,8 +147,8 @@ class AuthenticatedSessionController extends Controller
      * und Schema kommen deshalb jetzt direkt aus CENTRAL_DOMAIN bzw. dem
      * aktuellen Request, nicht aus APP_URL.
      */
-    private function centralDomainUrl(Request $request, string $path): string
+    private function centralDomainUrl(Request $request, string $path, ?string $host = null): string
     {
-        return $request->getScheme().'://'.config('app.central_domain').$path;
+        return $request->getScheme().'://'.($host ?: config('app.central_domain')).$path;
     }
 }

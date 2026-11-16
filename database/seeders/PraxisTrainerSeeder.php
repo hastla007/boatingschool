@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\CourseDefinition;
 use App\Models\MediaAsset;
 use App\Models\PraxisTask;
+use App\Support\QuestionMedia;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 
@@ -16,8 +17,8 @@ use Illuminate\Support\Facades\Storage;
  * SVG-Quellen in database/data/praxistrainer_bilder_svg/). Binnen nutzt für
  * Manöver, Knoten und Sicherheit dieselben Grafiken wie See (gleiches
  * Asset); der Asset-Quellname bleibt daher "SBF See Praxistrainer".
- * Bilder werden wie bei den Prüfungsbögen (ExamPaperSeeder) lokal unter
- * storage/app/public/question-media abgelegt statt extern verlinkt. Karten
+ * Bilder werden lokal auf der privaten Disk unter question-media abgelegt
+ * (Auslieferung nur signiert, siehe QuestionMedia) statt extern verlinkt. Karten
  * mit ELWIS-Gegenstück haben keine eigene Grafik mehr (leere Spalte
  * bilddatei); ihr Bild setzt ElwisPraxisImageSeeder.
  */
@@ -88,15 +89,16 @@ class PraxisTrainerSeeder extends Seeder
         }
 
         $storagePath = 'question-media/praxistrainer/'.$filename;
-        if (! Storage::disk('public')->exists($storagePath)) {
-            Storage::disk('public')->put($storagePath, file_get_contents($sourcePath));
+        // Rechte ungeklärt („unknown“): privat, Auslieferung nur signiert (QuestionMedia).
+        if (! Storage::disk(QuestionMedia::DISK)->exists($storagePath)) {
+            QuestionMedia::put($storagePath, file_get_contents($sourcePath), 'unknown');
         }
 
         return MediaAsset::firstOrCreate(
             ['asset_key' => 'praxistrainer_'.$filename],
             [
                 'media_type' => 'image',
-                'storage_path' => Storage::disk('public')->url($storagePath),
+                'storage_path' => $storagePath,
                 'mime_type' => 'image/png',
                 'source' => 'SBF See Praxistrainer',
             ]

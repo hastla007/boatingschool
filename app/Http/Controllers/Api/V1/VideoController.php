@@ -11,6 +11,7 @@ use App\Models\VideoLessonStep;
 use App\Models\VideoModule;
 use App\Models\VideoProgress;
 use App\Support\TenantContext;
+use App\Support\VideoStepImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -30,17 +31,35 @@ class VideoController extends Controller
 
     public function index(Request $request, string $courseId): JsonResponse
     {
-        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
+        $tenant = $this->tenantContext->tenant();
+        $course = $this->access->require($tenant, $request->user(), $courseId, 'video');
         $modules = $course->videoModules()->with('lessons.steps')->get();
-        $progress = $this->progressFor($request, $modules->flatMap->lessons);
+        // Probezugang: nur die ersten N Lektionen in Kursreihenfolge.
+        if (! $this->access->featureScope($tenant, $request->user(), $course, 'video')['full']) {
+            $allowed = $this->access->limitItems($tenant, $request->user(), $course, 'video', $modules->flatMap->lessons->values())->pluck('id')->flip();
+            $modules = $modules->map(fn (VideoModule $m) => $m->setRelation('lessons', $m->lessons->filter(fn (VideoLesson $l) => $allowed->has($l->id))->values()))
+                ->filter(fn (VideoModule $m) => $m->lessons->isNotEmpty())->values();
+        }
+        $lessons = $modules->flatMap->lessons->values();
+        $progress = $this->progressFor($request, $lessons);
+        // Nächste offene Lektion im normalen Kursfluss (ohne eigenständige Kapitel wie Knoten).
+        $next = $modules->reject(fn (VideoModule $m) => $this->isStandalone($m))->flatMap->lessons
+            ->first(fn (VideoLesson $l) => ! ($progress->get($l->id)?->completed ?? false));
 
         return response()->json(['data' => $modules->values()->map(fn (VideoModule $m, int $i) => [
             'id' => $m->id,
             'title' => $m->title,
+            'code' => $m->module_code,
+            'group' => $m->group_label,
             'order' => $i + 1,
-            'standalone' => in_array($m->title, self::STANDALONE_CHAPTERS, true),
+            'standalone' => $this->isStandalone($m),
             'lessons' => $m->lessons->map(fn (VideoLesson $l) => $this->lesson($l, $progress->get($l->id), false))->values(),
-        ])]);
+        ]), 'meta' => [
+            'course_id' => (string) $course->id,
+            'lessons' => $lessons->count(),
+            'completed' => $progress->where('completed', true)->count(),
+            'next_lesson_id' => $next?->id,
+        ]]);
     }
 
     public function show(Request $request, string $lessonId): JsonResponse
@@ -82,16 +101,26 @@ class VideoController extends Controller
         ]]);
     }
 
-    /** Lektion laden; Zugang über den Kurs ihres Kapitels. */
+    /** Lektion laden; Zugang über den Kurs ihres Kapitels (Probezugang: erste N Lektionen wie in index()). */
     private function accessibleLesson(Request $request, string $lessonId): VideoLesson
     {
         $lesson = VideoLesson::with('module')->find($lessonId);
         if (! $lesson || ! $lesson->module) {
             throw ApiProblem::notFound('Lektion');
         }
-        $this->access->require($this->tenantContext->tenant(), $request->user(), $lesson->module->course_id);
+        $tenant = $this->tenantContext->tenant();
+        $course = $this->access->require($tenant, $request->user(), $lesson->module->course_id, 'video');
+        $ordered = $course->videoModules()->with('lessons')->get()->flatMap->lessons->values();
+        if (! $this->access->allowsLimitedItem($tenant, $request->user(), $course, 'video', $ordered, (string) $lesson->id)) {
+            throw CourseAccess::itemLocked();
+        }
 
         return $lesson;
+    }
+
+    private function isStandalone(VideoModule $module): bool
+    {
+        return in_array($module->title, self::STANDALONE_CHAPTERS, true);
     }
 
     private function progressFor(Request $request, Collection $lessons): Collection
@@ -123,7 +152,8 @@ class VideoController extends Controller
                 'order' => $i + 1,
                 'title' => $s->title,
                 'description' => null,
-                'media' => [$s->image_path ? Present::image(Present::publicFile($s->image_path), $s->title) : Present::placeholder('Bild folgt')],
+                // Signierte, kurzlebige Adresse (VideoStepImage); nie zwischenspeichern.
+                'media' => [$s->image_path ? Present::image(VideoStepImage::url($s), $s->title) : Present::placeholder('Bild folgt')],
             ]);
         }
 

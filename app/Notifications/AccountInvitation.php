@@ -6,8 +6,11 @@ use App\Models\PlatformSetting;
 use App\Models\Tenant;
 use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
+use App\Notifications\Concerns\SentFromSchool;
 use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -15,12 +18,20 @@ use Illuminate\Notifications\Notification;
  * Einladung mit neu angelegtem Konto: Schule und Rolle nennen und zum
  * Festlegen des Passworts in die Schule führen (statt der allgemeinen
  * „Passwort zurücksetzen“-Mail mit 60 Minuten Gültigkeit).
+ *
+ * Audit ARC-2: die Sammel-Einladung reiht sie in die Queue ein (verschlüsselt,
+ * der Link enthält das Token); Einzel-Einladungen gehen weiter direkt
+ * (AccountSetupLink::send() mit notifyNow) und melden einen Mailfehler.
  */
-class AccountInvitation extends Notification
+class AccountInvitation extends Notification implements ShouldBeEncrypted, ShouldQueue
 {
-    use AddsNoReplyHint, EscapesMarkdown, Queueable;
+    use AddsNoReplyHint, EscapesMarkdown, Queueable, SentFromSchool;
 
-    public function __construct(private readonly ?Tenant $tenant, private readonly string $role, public readonly string $url) {}
+    public function __construct(private readonly ?Tenant $tenant, private readonly string $role, public readonly string $url)
+    {
+        $this->captureSchool();
+        $this->afterCommit();
+    }
 
     /** @return array<int, string> */
     public function via(mixed $notifiable): array

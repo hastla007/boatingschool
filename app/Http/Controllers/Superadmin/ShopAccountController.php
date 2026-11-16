@@ -16,9 +16,12 @@ use App\Services\AccountErasureService;
 use App\Services\AccountSetupLink;
 use App\Support\BestEffortMail;
 use App\Support\TenantPath;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -71,50 +74,78 @@ class ShopAccountController extends Controller
             'note' => ['nullable', 'string', 'max:500'],
         ], ['slug.regex' => 'Der Slug darf nur Kleinbuchstaben, Ziffern und einzelne Bindestriche enthalten.']);
 
-        // Identität: das bei der Registrierung im Shop angelegte App-Konto.
-        $user = $account->user_id ? User::find($account->user_id) : null;
-        if (! $user) {
-            throw ValidationException::withMessages(['mode' => 'Zu diesem Shopkonto gibt es kein App-Konto mehr.']);
+        // Identität: Seit der Registrierung nur noch ohne App-Konto (die Adresse
+        // ist unbestätigt) -- es entsteht erst hier. Ältere Registrierungen
+        // haben es schon (Status „eingeladen“).
+        try {
+            $result = DB::transaction(function () use ($validated, $account, $request) {
+                // Gleichzeitige Freigabe/Ablehnung (zweiter Superadmin, alter Tab).
+                $locked = CommerceShopAccount::whereKey($account->id)->lockForUpdate()->first();
+                abort_unless($locked && $locked->status === CommerceShopAccount::PENDING_REVIEW, 409, 'Dieses Shopkonto wurde inzwischen bearbeitet.');
+
+                $user = $locked->user_id ? User::find($locked->user_id) : null;
+                if (! $user) {
+                    if (User::whereRaw('lower(email) = ?', [mb_strtolower($locked->email)])->exists()) {
+                        // Inzwischen gibt es ein App-Konto mit dieser Adresse (z. B. selbst
+                        // registriert): wie bei der Registrierung nur per Code verknüpfen.
+                        $locked->forceFill(['status' => CommerceShopAccount::AWAITING_LINK])->save();
+                        AuditLog::record(null, $request->user()->id, 'superadmin.commerce.account.awaiting_link', 'commerce_shop_account', $locked->id, null, []);
+
+                        return null;
+                    }
+                    $name = $locked->contact_name ?: $locked->email;
+                    $user = User::create([
+                        'display_name' => $name,
+                        ...($locked->contact_name ? User::splitDisplayName($locked->contact_name) : []),
+                        'email' => mb_strtolower($locked->email),
+                        'password' => Hash::make(Str::random(40)),
+                        // Wie eine Einladung: ein Passwort setzt die Person über den Einrichtungslink.
+                        'status' => 'invited',
+                    ]);
+                }
+
+                if ($validated['mode'] === 'new') {
+                    $tenant = Tenant::create(['slug' => $validated['slug'], 'name' => $validated['name'], 'status' => 'active', 'default_locale' => 'de-DE']);
+                    // 2FA-Pflicht fürs Team nach der Plattform-Einstellung „2FA-Pflicht für neue Schulen“.
+                    TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#007A7A',
+                        'require_team_two_factor' => PlatformSetting::newTenantRequiresTeamTwoFactor()]);
+                    $role = 'owner';
+                } else {
+                    $tenant = Tenant::findOrFail($validated['tenant_id']);
+                    $role = 'admin';
+                }
+                $membership = TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+                if (! $membership) {
+                    TenantUser::create(['tenant_id' => $tenant->id, 'user_id' => $user->id, 'role' => $role, 'status' => 'active']);
+                } elseif (in_array($membership->role, ['owner', 'admin'], true) && $membership->status === 'active') {
+                    $role = $membership->role;
+                } else {
+                    // Bestehende Mitgliedschaft nie still hochstufen oder reaktivieren:
+                    // das entscheidet die Schule selbst (Team-Verwaltung).
+                    throw ValidationException::withMessages(['tenant_id' => 'Diese Person ist bei der Schule bereits '
+                        .($membership->status === 'active' ? 'als „'.$membership->role.'“' : 'mit Status „'.$membership->status.'“')
+                        .' eingetragen. Rolle bitte über die Team-Verwaltung der Schule ändern lassen.']);
+                }
+
+                $account->forceFill([
+                    'status' => CommerceShopAccount::LINKED, 'tenant_id' => $tenant->id, 'user_id' => $user->id,
+                    'reviewed_by_user_id' => $request->user()->id, 'reviewed_at' => now(), 'review_note' => $validated['note'] ?? null,
+                    'linked_at' => now(),
+                ])->save();
+                AuditLog::record($tenant->id, $request->user()->id, 'superadmin.commerce.account.approved', 'commerce_shop_account', $account->id, null, [
+                    'mode' => $validated['mode'], 'user_id' => $user->id, 'role' => $role,
+                ]);
+
+                return [$tenant, $role, $user];
+            });
+        } catch (UniqueConstraintViolationException) {
+            // Gleichzeitig ein App-Konto mit derselben Adresse entstanden.
+            throw ValidationException::withMessages(['mode' => 'Zu dieser Adresse wurde gerade ein App-Konto angelegt. Bitte die Seite neu laden.']);
         }
-
-        [$tenant, $role] = DB::transaction(function () use ($validated, $account, $user, $request) {
-            // Gleichzeitige Freigabe/Ablehnung (zweiter Superadmin, alter Tab).
-            $locked = CommerceShopAccount::whereKey($account->id)->lockForUpdate()->first();
-            abort_unless($locked && $locked->status === CommerceShopAccount::PENDING_REVIEW, 409, 'Dieses Shopkonto wurde inzwischen bearbeitet.');
-            if ($validated['mode'] === 'new') {
-                $tenant = Tenant::create(['slug' => $validated['slug'], 'name' => $validated['name'], 'status' => 'active', 'default_locale' => 'de-DE']);
-                // 2FA-Pflicht fürs Team nach der Plattform-Einstellung „2FA-Pflicht für neue Schulen“.
-                TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#007A7A',
-                    'require_team_two_factor' => PlatformSetting::newTenantRequiresTeamTwoFactor()]);
-                $role = 'owner';
-            } else {
-                $tenant = Tenant::findOrFail($validated['tenant_id']);
-                $role = 'admin';
-            }
-            $membership = TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
-            if (! $membership) {
-                TenantUser::create(['tenant_id' => $tenant->id, 'user_id' => $user->id, 'role' => $role, 'status' => 'active']);
-            } elseif (in_array($membership->role, ['owner', 'admin'], true) && $membership->status === 'active') {
-                $role = $membership->role;
-            } else {
-                // Bestehende Mitgliedschaft nie still hochstufen oder reaktivieren:
-                // das entscheidet die Schule selbst (Team-Verwaltung).
-                throw ValidationException::withMessages(['tenant_id' => 'Diese Person ist bei der Schule bereits '
-                    .($membership->status === 'active' ? 'als „'.$membership->role.'“' : 'mit Status „'.$membership->status.'“')
-                    .' eingetragen. Rolle bitte über die Team-Verwaltung der Schule ändern lassen.']);
-            }
-
-            $account->forceFill([
-                'status' => CommerceShopAccount::LINKED, 'tenant_id' => $tenant->id, 'user_id' => $user->id,
-                'reviewed_by_user_id' => $request->user()->id, 'reviewed_at' => now(), 'review_note' => $validated['note'] ?? null,
-                'linked_at' => now(),
-            ])->save();
-            AuditLog::record($tenant->id, $request->user()->id, 'superadmin.commerce.account.approved', 'commerce_shop_account', $account->id, null, [
-                'mode' => $validated['mode'], 'user_id' => $user->id, 'role' => $role,
-            ]);
-
-            return [$tenant, $role];
-        });
+        if ($result === null) {
+            return back()->withErrors(['mode' => 'Zu dieser Adresse gibt es inzwischen ein App-Konto. Verknüpft wird nur per Code aus diesem Konto; das Shopkonto wartet jetzt auf die Verknüpfung.']);
+        }
+        [$tenant, $role, $user] = $result;
 
         // Noch nie angemeldet: Einrichtungslink (Passwort festlegen) wie bei Einladungen.
         if ($user->status === 'invited') {

@@ -6,9 +6,12 @@ use App\Models\CourseDefinition;
 use App\Models\NavigationProgress;
 use App\Models\NavigationQuestion;
 use App\Models\NavigationTask;
+use App\Models\TenantUser;
 use App\Services\AccountErasureService;
 use App\Services\PersonalDataExportService;
 use App\Support\NavigationChart;
+use App\Support\ProductionReadiness;
+use App\Support\ProtectedMedia;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -173,7 +176,8 @@ class NavigationTaskTest extends TestCase
         preg_match('#src="([^"]*/media/navigation-charts/[^"]+)"#', $page->getContent(), $m);
         $this->assertNotEmpty($m, 'signierte Bildadresse auf der Seite');
         $signed = html_entity_decode($m[1]);
-        $this->get($signed)->assertOk();
+        $chart = $this->get($signed)->assertOk();
+        $this->assertSame(ProtectedMedia::SANDBOX_CSP, $chart->headers->get('Content-Security-Policy'));
         $this->get(strtok($signed, '?'))->assertForbidden();
         $this->travel(NavigationChart::URL_MINUTES + 1)->minutes();
         $this->get($signed)->assertForbidden();
@@ -183,6 +187,59 @@ class NavigationTaskTest extends TestCase
         $this->actingAs($superadmin)->delete("/superadmin/navigation-tasks/{$task->id}/chart")->assertRedirect();
         Storage::disk('local')->assertMissing($path);
         $this->assertNull($this->onAdmin(fn () => $task->fresh())->chart_image_path);
+    }
+
+    public function test_chart_address_is_bound_to_person_and_school_and_access_is_rechecked(): void
+    {
+        Storage::fake('local');
+        Storage::fake('public');
+        [$course, $task] = $this->makeIsolatedNavigationTask();
+        $path = NavigationChart::DIRECTORY.'/'.$task->id.'-test.png';
+        Storage::disk('local')->put($path, 'png');
+        $this->onAdmin(fn () => $task->update(['chart_image_path' => $path]));
+
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+        $page = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam/navigation")->assertOk();
+        preg_match('#src="([^"]*/media/navigation-charts/[^"]+)"#', $page->getContent(), $m);
+        $signed = html_entity_decode($m[1]);
+        parse_str((string) parse_url($signed, PHP_URL_QUERY), $query);
+        $this->assertSame($learner->id, $query['u'] ?? null, 'an die Person gebunden');
+        $this->assertSame($tenant->id, $query['t'] ?? null, 'an die Schule gebunden');
+        $this->assertLessThanOrEqual(now()->addMinutes(NavigationChart::URL_MINUTES)->timestamp, (int) $query['expires']);
+        $this->assertLessThan(120, NavigationChart::URL_MINUTES);
+        $this->get($signed)->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
+
+        // Person oder Schule austauschen bricht die Signatur.
+        $other = $this->createTenantUser($tenant, 'learner');
+        $this->get(str_replace('u='.$learner->id, 'u='.$other->id, $signed))->assertForbidden();
+
+        // Ohne Kurszugang (andere Schule, gleiche Person) gibt es nichts.
+        $foreignTenant = $this->createTestTenant('Fremde Schule');
+        $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->create(['tenant_id' => $foreignTenant->id, 'user_id' => $learner->id, 'role' => 'learner', 'status' => 'active']));
+        $this->get(NavigationChart::url($path, $learner, $foreignTenant))->assertNotFound();
+        $this->get(NavigationChart::url($path, $other, $tenant))->assertNotFound();
+
+        // Entzogener Kurszugang wirkt sofort auf schon ausgegebene Adressen.
+        $this->onAdmin(fn () => $entitlement->update(['status' => 'revoked']));
+        $this->get($signed)->assertNotFound();
+
+        // Superadmin (ohne Schule) darf, Anonyme bekommen keine Adresse.
+        $this->get(NavigationChart::url($path, $this->createSuperAdmin()))->assertOk();
+        auth()->logout();
+        $this->assertNull(NavigationChart::url($path));
+    }
+
+    public function test_go_live_check_warns_about_chart_excerpts_on_the_public_disk(): void
+    {
+        Storage::fake('public');
+        $label = 'Kartenausschnitte nicht öffentlich abrufbar';
+        $check = fn () => collect(ProductionReadiness::checks())->firstWhere('label', $label);
+        $this->assertSame('ok', $check()['status']);
+
+        Storage::disk('public')->put(NavigationChart::DIRECTORY.'/alt.png', 'png');
+        $this->assertSame('warn', $check()['status']);
     }
 
     /** @return array{0: CourseDefinition, 1: NavigationTask} */

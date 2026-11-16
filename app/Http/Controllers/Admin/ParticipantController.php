@@ -13,6 +13,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\WillkommensboxOrder;
 use App\Services\AccountErasureService;
+use App\Services\CouponRedemptionService;
 use App\Services\InvitationCoupon;
 use App\Services\LearnerOverview;
 use App\Services\ParticipantInviter;
@@ -410,12 +411,12 @@ class ParticipantController extends Controller
 
         $result = $inviter->invite($tenant, $request->user(), $validated['name'], $validated['email'], array_intersect_key($validated, array_flip(['street', 'postal_code', 'city', 'country'])));
 
-        // Kein Konto-Orakel: für Adressen, die (noch) nicht Mitglied dieser
-        // Schule sind, sieht die Antwort gleich aus, egal ob plattformweit
-        // schon ein Konto existiert -- dieselben Texte, dieselbe
-        // Code-Prüfung, dieselbe Anzeige unter „Offene Einladungen“.
+        // Kein Konto-Orakel (Audit SEC-W-3): für Adressen, die (noch) nicht
+        // Mitglied dieser Schule sind, sieht die Antwort gleich aus, egal ob
+        // plattformweit schon ein Konto existiert -- dieselben Texte,
+        // dieselbe Code-Prüfung, dieselbe Anzeige unter „Offene Einladungen“.
         if ($result['duplicate'] ?? false) {
-            return back()->with('status', 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
+            return back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
         }
         if ($result['already_member'] ?? false) {
             return back()->with('status', ($result['role'] ?? 'learner') === 'learner'

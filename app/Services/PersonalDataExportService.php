@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\ApiAccountDeletionRequest;
+use App\Models\ApiMobileWebSession;
 use App\Models\Attempt;
 use App\Models\AuditLog;
 use App\Models\Coupon;
@@ -11,6 +13,8 @@ use App\Models\Favorite;
 use App\Models\FavoriteCollection;
 use App\Models\FavoriteCollectionItem;
 use App\Models\InstructorCourse;
+use App\Models\LearningGroup;
+use App\Models\LearningGroupMember;
 use App\Models\NavigationProgress;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
@@ -46,7 +50,7 @@ class PersonalDataExportService
     {
         $data = $this->collect($user, $tenant, $forSchool);
         if ($forSchool) {
-            unset($data['sessions'], $data['app_devices'], $data['audit_log']);
+            unset($data['sessions'], $data['app_devices'], $data['app_web_logins'], $data['app_settings'], $data['audit_log']);
         }
 
         return $data;
@@ -236,12 +240,14 @@ class PersonalDataExportService
                 ->map(fn (PraxisProgress $p) => [
                     'praxis_task_id' => $p->praxis_task_id,
                     'completed' => $p->completed,
+                    'status' => $p->status,
                 ])->all(),
             'navigation_progress' => NavigationProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()
                 ->map(fn (NavigationProgress $p) => [
                     'navigation_question_id' => $p->navigation_question_id,
                     'answer' => $p->answer,
                     'correct' => $p->correct,
+                    'self_assessment' => $p->self_assessment,
                     'updated_at' => $p->updated_at?->toIso8601String(),
                 ])->all(),
             'video_progress' => VideoProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()
@@ -288,9 +294,36 @@ class PersonalDataExportService
             'tenant_invitations' => TenantInvitation::where('tenant_id', $tenant->id)->where('email', $user->email)
                 ->orderBy('created_at')->get()
                 ->map(fn (TenantInvitation $i) => [
+                    'name' => $i->name,
                     'role' => $i->role,
                     'created_at' => $i->created_at?->toIso8601String(),
                     'accepted_at' => $i->accepted_at?->toIso8601String(),
+                ])->all(),
+            // Lerngruppen: eigene Plätze/Einladungen und selbst verwaltete Gruppen
+            // (dort nur Kennzahlen -- Namen und Adressen der Mitglieder sind
+            // Daten Dritter und gehören in deren eigenen Export).
+            'learning_group_memberships' => LearningGroupMember::where('tenant_id', $tenant->id)
+                ->where(fn ($q) => $q->where('user_id', $user->id)->orWhereRaw('lower(email) = ?', [mb_strtolower($user->email)]))
+                ->with('group')->orderBy('created_at')->get()
+                ->map(fn (LearningGroupMember $m) => [
+                    'group' => $m->group?->name,
+                    'status' => $m->status,
+                    'email' => $m->email,
+                    'invited_at' => $m->invited_at?->toIso8601String(),
+                    'joined_at' => $m->joined_at?->toIso8601String(),
+                ])->all(),
+            'learning_groups_managed' => LearningGroup::where('tenant_id', $tenant->id)->where('owner_user_id', $user->id)
+                ->withCount(['members as active_members' => fn ($q) => $q->where('status', 'active'),
+                    'members as open_invitations' => fn ($q) => $q->where('status', 'invited')])
+                ->orderBy('created_at')->get()
+                ->map(fn (LearningGroup $g) => [
+                    'name' => $g->name,
+                    'status' => $g->status,
+                    'seats' => $g->seats,
+                    'active_members' => $g->active_members,
+                    'open_invitations' => $g->open_invitations,
+                    'valid_until' => $g->valid_until?->toIso8601String(),
+                    'created_at' => $g->created_at?->toIso8601String(),
                 ])->all(),
             // Angemeldete Geräte (IP-Adresse, Browser) dieses Kontos.
             'sessions' => $forSchool ? [] : DB::connection('pgsql_admin')->table('sessions')->where('user_id', $user->id)->orderByDesc('last_activity')->get()
@@ -316,6 +349,23 @@ class PersonalDataExportService
                     'first_seen_at' => Carbon::parse($row->first_seen_at)->toIso8601String(),
                     'last_seen_at' => Carbon::parse($row->last_seen_at)->toIso8601String(),
                 ])->all(),
+            // Offener Löschantrag aus der App (bis zur Bestätigung per Mail).
+            'app_deletion_requests' => ApiAccountDeletionRequest::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->orderBy('requested_at')->get()
+                ->map(fn (ApiAccountDeletionRequest $r) => [
+                    'requested_at' => $r->requested_at?->toIso8601String(),
+                    'expires_at' => $r->expires_at?->toIso8601String(),
+                ])->all(),
+            // Anmeldungen der Webansicht aus der App (ohne Codes, nur deren Hashes liegen vor).
+            'app_web_logins' => $forSchool ? [] : ApiMobileWebSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->orderBy('created_at')->get()
+                ->map(fn (ApiMobileWebSession $s) => [
+                    'redirect_path' => $s->redirect_path,
+                    'created_at' => $s->created_at?->toIso8601String(),
+                    'used_at' => $s->used_at?->toIso8601String(),
+                ])->all(),
+            // Geräteübergreifende App-Einstellungen (gelten fürs Konto, nicht je Schule).
+            'app_settings' => $forSchool ? null : $this->appSettings($user),
             // Protokolleinträge dieser Bootsschule, die die Person betreffen.
             'audit_log' => $forSchool ? [] : AuditLog::where('tenant_id', $tenant->id)
                 ->where(fn ($q) => $q->where('actor_user_id', $user->id)
@@ -328,6 +378,23 @@ class PersonalDataExportService
                     'by_this_person' => $l->actor_user_id === $user->id,
                     'created_at' => $l->created_at?->toIso8601String(),
                 ])->all(),
+        ];
+    }
+
+    /** @return ?array{settings: array<string, mixed>, version: int, updated_at: ?string} */
+    private function appSettings(User $user): ?array
+    {
+        // Schulübergreifende Tabelle ohne RLS (Zugriff nur über die eigene user_id).
+        $row = DB::table('api_user_setting')->where('user_id', $user->id)->first();
+        if ($row === null) {
+            return null;
+        }
+        $settings = json_decode((string) $row->settings, true);
+
+        return [
+            'settings' => is_array($settings) ? $settings : [],
+            'version' => (int) $row->version,
+            'updated_at' => $row->updated_at ? Carbon::parse($row->updated_at)->toIso8601String() : null,
         ];
     }
 }

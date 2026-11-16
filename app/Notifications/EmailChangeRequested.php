@@ -21,7 +21,8 @@ class EmailChangeRequested extends Notification
 {
     use Queueable;
 
-    public function __construct(private readonly string $newEmail) {}
+    /** $bySupport: Audit SEC-W-2 -- der Superadmin hat die Adresse bereits geändert. */
+    public function __construct(private readonly string $newEmail, private readonly bool $bySupport = false) {}
 
     /** @return array<int, string> */
     public function via(mixed $notifiable): array
@@ -34,6 +35,15 @@ class EmailChangeRequested extends Notification
         // Review-Runde 12: Team-Mitglieder werden gesiezt.
         $formal = $notifiable instanceof User && $notifiable->prefersFormalAddress();
         $email = preg_replace('/([\\\\`*_{}\[\]#|>~])/', '\\\\$1', $this->newEmail);
+
+        if ($this->bySupport) {
+            return (new MailMessage)
+                ->subject($formal ? 'Ihre E-Mail-Adresse wurde geändert' : 'Deine E-Mail-Adresse wurde geändert')
+                ->line('Der Support hat die Login-E-Mail-Adresse '.($formal ? 'Ihres Kontos' : 'deines Kontos')." zu {$email} geändert. Alle bisherigen Anmeldungen wurden beendet.")
+                ->line($formal
+                    ? 'Haben Sie das nicht veranlasst? Dann wenden Sie sich bitte umgehend an den Support.'
+                    : 'Hast du das nicht veranlasst? Dann wende dich bitte umgehend an den Support.');
+        }
 
         return (new MailMessage)
             ->subject($formal ? 'Änderung Ihrer E-Mail-Adresse angefordert' : 'Änderung deiner E-Mail-Adresse angefordert')

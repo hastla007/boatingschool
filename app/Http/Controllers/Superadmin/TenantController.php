@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\Entitlement;
+use App\Models\LearningGroup;
 use App\Models\PlatformSetting;
 use App\Models\Tenant;
 use App\Models\TenantBranding;
@@ -206,6 +207,10 @@ class TenantController extends Controller
             'memberships' => $memberships,
             'results' => $results,
             'coupons' => $coupons,
+            // Nur lesend (verwaltet von der Schule bzw. per Befehl), eine Abfrage plus Verwalter.
+            'learningGroups' => LearningGroup::withoutGlobalScopes()->where('tenant_id', $tenant->id)->with('owner')
+                ->withCount(['members as used_seats' => fn ($q) => $q->withoutGlobalScopes()->occupyingSeat()])
+                ->orderByRaw("status = 'revoked'")->orderByDesc('created_at')->get(),
         ]);
     }
 

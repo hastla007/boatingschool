@@ -182,4 +182,20 @@ return [
     */
     'ops_alert_email' => env('OPS_ALERT_EMAIL'),
 
+    /*
+    | Totmann-Schalter (Betriebsaudit OPS-2): externer Heartbeat-Dienst, den
+    | der Scheduler jede Minute anpingt. Fällt Cron oder der ganze Server aus,
+    | bleibt der Ping aus und der Dienst alarmiert -- das kann der Go-live-Check
+    | selbst nicht, weil er über denselben Scheduler läuft.
+    */
+    'ops_heartbeat_url' => env('OPS_HEARTBEAT_URL'),
+
+    /*
+    | Optional eigener Host nur für /superadmin (z. B. admin.lernen.example.de).
+    | Gesetzt, ist der Superadmin-Bereich ausschließlich dort erreichbar (sonst
+    | 404) und hat einen eigenen Ursprung samt eigenem Session-Cookie -- im
+    | Pfad-Modus teilen sich sonst alle Schulen und der Superadmin einen Ursprung.
+    */
+    'superadmin_host' => strtolower((string) env('SUPERADMIN_HOST', '')) ?: null,
+
 ];

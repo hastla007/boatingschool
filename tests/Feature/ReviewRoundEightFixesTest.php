@@ -9,6 +9,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\AccountInvitation;
 use App\Notifications\CouponRedeemed;
+use App\Services\ParticipantInviter;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
@@ -47,7 +48,7 @@ class ReviewRoundEightFixesTest extends TestCase
         // (früher: bis zu drei neue Links, was eine neue Adresse von einer
         // mit bestehendem Konto unterscheidbar machte).
         $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', ['name' => 'Neu Ling', 'email' => $email])
-            ->assertSessionHas('status', 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
+            ->assertSessionHas('status', ParticipantInviter::ALREADY_INVITED_STATUS);
         Notification::assertSentToTimes($user, AccountInvitation::class, 1);
 
         // Am nächsten Tag (Drossel abgelaufen) gibt es einen neuen Link.
@@ -59,7 +60,7 @@ class ReviewRoundEightFixesTest extends TestCase
 
         // Die Liste zeigt die Person unter „Offene Einladungen“ mit „erneut senden“.
         $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=participants')
-            ->assertSee('Offene Einladungen')->assertSee('eingeladen, noch nicht angemeldet')->assertSee('Einladung erneut senden');
+            ->assertSee('Offene Einladungen')->assertSee('Einladung offen')->assertSee('Einladung erneut senden');
     }
 
     public function test_a_suspended_learner_reaches_the_data_rights_page_and_can_export(): void

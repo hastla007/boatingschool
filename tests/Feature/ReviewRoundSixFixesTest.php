@@ -176,9 +176,9 @@ class ReviewRoundSixFixesTest extends TestCase
 
         $this->actingAsInTenant($instructor, $tenant)->post('/admin/participants/bulk-invite', ['emails' => $other->email])->assertForbidden();
         $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/bulk-invite', ['emails' => $other->email])
-            ->assertSessionHas('status', 'Eine Person eingeladen. Die Einladungsmail wird verschickt.');
+            ->assertSessionHas('status', 'Eine Person eingeladen. Die Einladungsmail wird im Hintergrund verschickt.');
         $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/bulk-invite', ['emails' => $other->email."\nName ".str_repeat('x', 200).' <lang@example.test>'])
-            ->assertSessionHas('status', fn ($s) => str_starts_with($s, '0 Personen eingeladen.') && str_contains($s, 'heute schon eingeladen') && str_contains($s, 'Name zu lang'));
+            ->assertSessionHas('status', fn ($s) => str_starts_with($s, '0 Personen eingeladen.') && str_contains($s, 'bereits eingeladen') && str_contains($s, 'Name zu lang'));
     }
 
     public function test_failed_reminder_mail_does_not_start_the_cooldown(): void
@@ -187,7 +187,7 @@ class ReviewRoundSixFixesTest extends TestCase
         $owner = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
         $this->grantEntitlement($tenant, $learner, $this->existingCourse('SRC'));
-        Notification::shouldReceive('send')->andThrow(new \RuntimeException('SMTP down'));
+        Notification::shouldReceive('sendNow')->andThrow(new \RuntimeException('SMTP down'));
 
         $this->actingAsInTenant($owner, $tenant)->post('/admin/inactive/remind', ['user_id' => $learner->id, 'days' => 14])
             ->assertSessionHas('status', fn ($s) => str_contains($s, '0 Erinnerungen verschickt.') && str_contains($s, '1 konnten nicht verschickt werden'));

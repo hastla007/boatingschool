@@ -1,14 +1,17 @@
 <?php
 
 use App\Api\ProblemResponse;
-use App\Http\Controllers\AppLinksController;
+use App\Http\Controllers\AppLinkAssociationController;
 use App\Http\Controllers\NavigationChartImageController;
+use App\Http\Controllers\ProtectedMediaController;
+use App\Http\Controllers\QuestionMediaController;
 use App\Http\Controllers\TlsCheckController;
 use App\Http\Middleware\Api\ApiIdempotency;
 use App\Http\Middleware\Api\AuthenticateMobileApi;
 use App\Http\Middleware\Api\PrepareApiRequest;
 use App\Http\Middleware\Api\ResolveApiTenant;
 use App\Http\Middleware\Commerce\VerifyCommerceSignature;
+use App\Http\Middleware\ConsumeMobileWebSession;
 use App\Http\Middleware\EnforceInstructorScope;
 use App\Http\Middleware\EnforceMaintenanceMode;
 use App\Http\Middleware\EnforceTeamTwoFactor;
@@ -49,17 +52,26 @@ return Application::configure(basePath: dirname(__DIR__))
         // Mandant), siehe TlsCheckController.
         then: function () {
             Route::get('/tls-check', TlsCheckController::class)->name('tls-check');
-            // App-Deep-Links (iOS/Android): ebenfalls ohne web-Gruppe, auf jeder
-            // Domain gleich, ohne Weiterleitung (siehe AppLinksController).
-            Route::get('/.well-known/apple-app-site-association', [AppLinksController::class, 'apple'])->name('app-links.apple');
-            Route::get('/.well-known/assetlinks.json', [AppLinksController::class, 'android'])->name('app-links.android');
+            // Universal Links/App Links der Lernenden-App (ohne Sitzung, nur mit Konfiguration).
+            Route::get('/.well-known/apple-app-site-association', [AppLinkAssociationController::class, 'apple'])->name('app-links.apple');
+            Route::get('/.well-known/assetlinks.json', [AppLinkAssociationController::class, 'android'])->name('app-links.android');
             // Kartenausschnitte der Navigationsaufgaben: nur über signierte,
             // kurzlebige Adressen (ohne Session/Mandant, auch für die App).
             Route::get('/media/navigation-charts/{file}', NavigationChartImageController::class)
                 ->where('file', '[A-Za-z0-9][A-Za-z0-9._-]*')->middleware(['signed', 'throttle:120,1,navigation-chart'])->name('navigation-chart.image');
+            // Geschützte Fragen- und Praxistrainer-Bilder (QuestionMedia): signiert,
+            // an Person und Schule gebunden, Zugang wird beim Abruf erneut geprüft.
+            Route::get('/media/question-media/{asset}', QuestionMediaController::class)
+                ->whereUuid('asset')->middleware(['signed', 'throttle:600,1,question-media'])->name('question-media.file');
+            // Tipp-PDFs und Bilder der Videoschritte (TipPdf, VideoStepImage): ebenso.
+            Route::get('/media/tip-pdfs/{tip}', [ProtectedMediaController::class, 'tipPdf'])
+                ->whereUuid('tip')->middleware(['signed', 'throttle:300,1,tip-pdf'])->name('tip-pdf.file');
+            Route::get('/media/video-steps/{step}', [ProtectedMediaController::class, 'videoStep'])
+                ->whereUuid('step')->middleware(['signed', 'throttle:600,1,video-step'])->name('video-step.image');
             // Commerce-API v1 für den B2B-WooCommerce-Shop (docs/commerce/README.md):
-            // signiert, Owner-Verbindung, eigene Begrenzung.
-            Route::middleware(['api', 'commerce.signed', 'admin-db', 'throttle:300,1,commerce'])
+            // signiert, Owner-Verbindung; Begrenzung je Endpunktgruppe in
+            // routes/commerce.php (getrennte Töpfe, siehe AppServiceProvider).
+            Route::middleware(['api', 'commerce.signed', 'admin-db'])
                 ->prefix('api/commerce/v1')->group(__DIR__.'/../routes/commerce.php');
         },
     )
@@ -160,6 +172,8 @@ return Application::configure(basePath: dirname(__DIR__))
             EnforceMaintenanceMode::class,
             EnsureAccountIsActive::class,
             ResolveTenant::class,
+            // Einmal-Anmeldung der Webansicht aus der App, siehe ConsumeMobileWebSession.
+            ConsumeMobileWebSession::class,
             // Support-Ansicht („Als Nutzer ansehen“) nur lesend, siehe RestrictImpersonation.
             RestrictImpersonation::class,
             // 2FA-Pflicht fürs Team, siehe EnforceTeamTwoFactor.
@@ -192,6 +206,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToPriorityList(
             after: StartSession::class,
             append: ResolveTenant::class,
+        );
+
+        // Direkt nach ResolveTenant (Schule und RLS-Kontext stehen fest) und
+        // vor Authenticate: der Einmal-Code der App meldet erst an, danach
+        // greift die normale Anmeldeprüfung auf der Zieladresse.
+        $middleware->appendToPriorityList(
+            after: ResolveTenant::class,
+            append: ConsumeMobileWebSession::class,
         );
 
         // EnsureSuperAdmin (der "superadmin"-Alias) muss nach Authenticate

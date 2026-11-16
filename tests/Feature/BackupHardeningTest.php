@@ -2,21 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Console\Commands\BackupApplication;
 use App\Services\BackupVerifier;
-use App\Support\BackupEncryption;
-use App\Support\ProductionReadiness;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
-use RuntimeException;
-use Symfony\Component\Process\Process as SymfonyProcess;
 use Tests\TestCase;
 
-/** Datensicherung: Verschlüsselung (age/GnuPG), externe Aufbewahrung, fehlendes S3-Paket, Probe-Wiederherstellung. */
+/** Datensicherung: Probe-Wiederherstellung (app:backup:verify). */
 class BackupHardeningTest extends TestCase
 {
     private string $backupPath;
@@ -33,160 +26,6 @@ class BackupHardeningTest extends TestCase
     {
         File::deleteDirectory($this->backupPath);
         parent::tearDown();
-    }
-
-    /** pg_dump wird simuliert; age/gpg laufen echt (falls installiert). */
-    private function fakeProcesses(array &$ran = []): void
-    {
-        Process::fake(function (PendingProcess $process) use (&$ran) {
-            $ran[] = $process->command;
-            $command = (array) $process->command;
-            if (str_contains((string) $command[0], 'pg_dump')) {
-                $file = collect($command)->first(fn ($arg) => str_starts_with($arg, '--file='));
-                file_put_contents(substr($file, 7), 'PGDMP fake dump');
-
-                return Process::result();
-            }
-            $real = new SymfonyProcess($command);
-            $real->run();
-
-            return Process::result($real->getOutput(), $real->getErrorOutput(), $real->getExitCode());
-        });
-    }
-
-    private function ageKeypair(): array
-    {
-        if (! BackupEncryption::available('age') || ! BackupEncryption::available('age-keygen')) {
-            $this->markTestSkipped('age ist nicht installiert.');
-        }
-        $identity = $this->backupPath.'-identity.txt';
-        File::ensureDirectoryExists(dirname($identity));
-        $gen = new SymfonyProcess(['age-keygen', '-o', $identity]);
-        $gen->run();
-        preg_match('/age1[0-9a-z]+/', File::get($identity), $m);
-        $this->beforeApplicationDestroyed(fn () => File::delete($identity));
-
-        return [$m[0], $identity];
-    }
-
-    public function test_encryption_commands_for_age_and_gpg(): void
-    {
-        config(['backup.encrypt_recipient' => 'age1abc', 'backup.age' => '/opt/age', 'backup.gpg_recipient' => 'backup@example.de', 'backup.gpg' => 'gpg2']);
-
-        $this->assertSame(['/opt/age', '--encrypt', '--recipient', 'age1abc', '--output', '/b/x.age', '/b/x'], BackupEncryption::encryptCommand('age', '/b/x', '/b/x.age'));
-        $this->assertSame(['gpg2', '--batch', '--yes', '--trust-model', 'always', '--encrypt', '--recipient', 'backup@example.de', '--output', '/b/x.gpg', '/b/x'],
-            BackupEncryption::encryptCommand('gpg', '/b/x', '/b/x.gpg'));
-        $this->assertSame('.age', BackupEncryption::extension('age'));
-        $this->assertSame('gpg', BackupEncryption::modeOfFile('database.dump.gpg'));
-        $this->assertNull(BackupEncryption::modeOfFile('database.dump'));
-
-        // Ohne privaten Schlüssel kein Entschlüsseln.
-        $this->assertNull(BackupEncryption::decryptCommand('age', 'a', 'b'));
-        config(['backup.age_identity' => '/root/key.txt']);
-        $this->assertSame(['/opt/age', '--decrypt', '--identity', '/root/key.txt', '--output', 'b', 'a'], BackupEncryption::decryptCommand('age', 'a', 'b'));
-    }
-
-    public function test_age_is_preferred_and_gpg_is_the_fallback_when_age_is_missing(): void
-    {
-        config(['backup.encrypt_recipient' => null, 'backup.gpg_recipient' => null]);
-        $this->assertNull(BackupEncryption::mode());
-
-        config(['backup.encrypt_recipient' => 'age1abc', 'backup.age' => PHP_BINARY, 'backup.gpg_recipient' => 'backup@example.de', 'backup.gpg' => PHP_BINARY]);
-        $this->assertSame('age', BackupEncryption::mode());
-
-        config(['backup.age' => '/nicht/vorhanden/age']);
-        $this->assertSame('gpg', BackupEncryption::mode());
-
-        config(['backup.gpg_recipient' => null]);
-        $this->expectException(RuntimeException::class);
-        BackupEncryption::mode();
-    }
-
-    public function test_backup_fails_without_writing_plaintext_when_the_encryption_tool_is_missing(): void
-    {
-        config(['backup.encrypt_recipient' => 'age1abc', 'backup.age' => '/nicht/vorhanden/age', 'backup.gpg_recipient' => null]);
-        $ran = [];
-        $this->fakeProcesses($ran);
-
-        $this->artisan('app:backup')->assertFailed()->expectsOutputToContain('age ist nicht installiert');
-
-        $this->assertSame([], $ran, 'ohne Verschlüsselungswerkzeug wird gar nicht erst gedumpt');
-        $this->assertSame([], File::directories($this->backupPath));
-    }
-
-    public function test_backup_is_encrypted_with_age_and_can_be_decrypted_with_the_identity(): void
-    {
-        [$recipient, $identity] = $this->ageKeypair();
-        config(['backup.encrypt_recipient' => $recipient]);
-        Storage::disk('public')->put('logos/schule.png', 'png-bytes');
-        $this->fakeProcesses();
-
-        $this->artisan('app:backup')->assertSuccessful()->expectsOutputToContain('verschlüsselt mit age');
-
-        $dir = BackupApplication::latestBackupDirectory();
-        $this->assertFileExists($dir.'/database.dump.age');
-        $this->assertFileExists($dir.'/uploads.zip.age');
-        $this->assertFileDoesNotExist($dir.'/database.dump', 'kein Klartext neben der verschlüsselten Datei');
-        $this->assertFileDoesNotExist($dir.'/uploads.zip');
-        $this->assertStringNotContainsString('PGDMP', File::get($dir.'/database.dump.age'));
-        $manifest = json_decode(File::get($dir.'/manifest.json'), true);
-        $this->assertSame('age', $manifest['encryption']);
-        $this->assertSame(hash_file('sha256', $dir.'/database.dump.age'), $manifest['files']['database.dump.age']['sha256']);
-
-        $decrypt = new SymfonyProcess(['age', '--decrypt', '--identity', $identity, $dir.'/database.dump.age']);
-        $decrypt->run();
-        $this->assertSame('PGDMP fake dump', $decrypt->getOutput());
-    }
-
-    public function test_offsite_copies_are_only_pruned_when_explicitly_enabled(): void
-    {
-        Storage::fake('backup-extern');
-        Storage::disk('backup-extern')->put('backups/2020-01-01_030000/database.dump', 'alt');
-        config(['backup.disk' => 'backup-extern', 'filesystems.disks.backup-extern.driver' => 'local']);
-        $this->fakeProcesses();
-
-        $this->artisan('app:backup --no-uploads')->assertSuccessful();
-        Storage::disk('backup-extern')->assertExists('backups/2020-01-01_030000/database.dump');
-
-        config(['backup.remote_prune' => true]);
-        $this->artisan('app:backup --no-uploads')->assertSuccessful();
-        Storage::disk('backup-extern')->assertMissing('backups/2020-01-01_030000/database.dump');
-    }
-
-    public function test_a_missing_s3_package_keeps_the_local_backup(): void
-    {
-        if (BackupApplication::s3PackageInstalled()) {
-            $this->markTestSkipped('league/flysystem-aws-s3-v3 ist installiert.');
-        }
-        config(['backup.disk' => 's3', 'filesystems.disks.s3.driver' => 's3']);
-        $this->fakeProcesses();
-
-        $this->artisan('app:backup --no-uploads')->assertSuccessful()->expectsOutputToContain('league/flysystem-aws-s3-v3');
-
-        $this->assertNotNull(BackupApplication::latestBackupDirectory());
-        $this->assertSame('Paket league/flysystem-aws-s3-v3 fehlt (composer install ausführen).', BackupApplication::offsiteUnavailableReason('s3'));
-    }
-
-    public function test_check_production_reports_unencrypted_or_misconfigured_offsite_backups(): void
-    {
-        $label = fn (string $label) => collect(ProductionReadiness::checks())->firstWhere('label', $label);
-
-        config(['backup.disk' => null, 'backup.encrypt_recipient' => null, 'backup.gpg_recipient' => null]);
-        $this->assertNull($label('Sicherung verschlüsselt (BACKUP_ENCRYPT_RECIPIENT)'));
-
-        config(['backup.disk' => 'backup-extern', 'filesystems.disks.backup-extern' => ['driver' => 'local', 'root' => $this->backupPath.'-extern']]);
-        $this->assertSame('warn', $label('Sicherung verschlüsselt (BACKUP_ENCRYPT_RECIPIENT)')['status']);
-        $this->assertSame('ok', $label('Externer Sicherungsspeicher nutzbar')['status']);
-
-        config(['backup.encrypt_recipient' => 'age1abc', 'backup.age' => PHP_BINARY]);
-        $this->assertSame('ok', $label('Sicherung verschlüsselt (BACKUP_ENCRYPT_RECIPIENT)')['status']);
-        config(['backup.age' => '/nicht/vorhanden/age']);
-        $this->assertSame('fail', $label('Sicherung verschlüsselt (BACKUP_ENCRYPT_RECIPIENT)')['status']);
-
-        if (! BackupApplication::s3PackageInstalled()) {
-            config(['backup.disk' => 's3', 'filesystems.disks.s3.driver' => 's3']);
-            $this->assertSame('fail', $label('Externer Sicherungsspeicher nutzbar')['status']);
-        }
     }
 
     // --- app:backup:verify ------------------------------------------------
@@ -279,26 +118,6 @@ class BackupHardeningTest extends TestCase
 
         $this->artisan('app:backup:verify')->assertFailed()->expectsOutputToContain('Prüfsumme stimmt nicht');
         $this->assertSame([], $verifier->calls);
-    }
-
-    public function test_verify_of_an_encrypted_backup_needs_the_private_key(): void
-    {
-        [$recipient, $identity] = $this->ageKeypair();
-        $plain = $this->backupPath.'-plain';
-        File::ensureDirectoryExists(dirname($plain));
-        File::put($plain, 'PGDMP verschlüsselt');
-        (new SymfonyProcess(['age', '-r', $recipient, '-o', $plain.'.age', $plain]))->run();
-        $this->writeBackup('2026-03-01_031500', ['database.dump.age' => File::get($plain.'.age')]);
-        File::delete([$plain, $plain.'.age']);
-        $verifier = $this->fakeVerifier([]);
-
-        // Ohne Schlüssel: nur Prüfsummen.
-        $this->artisan('app:backup:verify')->assertSuccessful()->expectsOutputToContain('nur Prüfsummen geprüft');
-        $this->assertSame([], $verifier->calls);
-
-        config(['backup.age_identity' => $identity]);
-        $this->artisan('app:backup:verify')->assertSuccessful();
-        $this->assertSame('PGDMP verschlüsselt', $verifier->restoredContent);
     }
 
     public function test_verify_explains_the_createdb_requirement(): void

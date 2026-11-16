@@ -153,15 +153,20 @@
                     <div class="flex gap-3 overflow-x-auto pb-1">
                         @foreach ($lesson->steps as $step)
                             <div class="shrink-0 w-32 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 p-3 text-center">
-                                <div class="w-full aspect-square rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-2 text-slate-600 dark:text-slate-400">
-                                    <span class="text-lg font-semibold">{{ $loop->iteration }}</span>
-                                </div>
+                                @if ($step->image_path)
+                                    {{-- Signierte, kurzlebige Adresse (VideoStepImage). --}}
+                                    <img src="{{ \App\Support\VideoStepImage::url($step) }}" alt="Schritt {{ $loop->iteration }}: {{ $step->title }}" class="w-full aspect-square object-cover rounded-lg mb-2" loading="lazy">
+                                @else
+                                    <div class="w-full aspect-square rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-2 text-slate-600 dark:text-slate-400">
+                                        <span class="text-lg font-semibold">{{ $loop->iteration }}</span>
+                                    </div>
+                                @endif
                                 <div class="text-xs text-slate-600 dark:text-slate-300 leading-snug">{{ $step->title }}</div>
                             </div>
                         @endforeach
                     </div>
                     {{-- Interner Hinweis nur für den Plattform-Betreiber, nicht für Lernende. --}}
-                    @if (auth()->user()?->is_superadmin)
+                    @if (auth()->user()?->is_superadmin && $lesson->steps->contains(fn ($step) => ! $step->image_path))
                         <p class="text-xs text-slate-600 dark:text-slate-400 mt-2">Platzhalter-Schritte ohne echtes Bildmaterial &mdash; vor Produktivbetrieb durch Aufnahmen der Bootsschule ersetzen.</p>
                     @endif
                 </div>

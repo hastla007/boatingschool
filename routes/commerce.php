@@ -7,18 +7,25 @@ use Illuminate\Support\Facades\Route;
 | Commerce-API v1: Anbindung des B2B-WooCommerce-Shops (Präfix
 | /api/commerce/v1, siehe bootstrap/app.php). Nur signierte Server-zu-
 | Server-Aufrufe. Doku: docs/commerce/README.md.
+|
+| Zwei getrennte Töpfe (AppServiceProvider): Konto- und Statusabfragen, die
+| Shopkunden indirekt auslösen, bremsen Lieferungen und Sperren nicht aus.
 */
 
-Route::get('/catalog', [CommerceController::class, 'catalog']);
+Route::middleware('throttle:commerce-accounts')->group(function () {
+    Route::get('/catalog', [CommerceController::class, 'catalog']);
 
-Route::post('/accounts', [CommerceController::class, 'registerAccount']);
-Route::get('/accounts/{customerId}', [CommerceController::class, 'showAccount']);
-Route::patch('/accounts/{customerId}', [CommerceController::class, 'updateAccount']);
-Route::post('/accounts/{customerId}/link', [CommerceController::class, 'linkAccount']);
-Route::post('/accounts/{customerId}/deactivate', [CommerceController::class, 'deactivateAccount']);
+    Route::post('/accounts', [CommerceController::class, 'registerAccount']);
+    Route::get('/accounts/{customerId}', [CommerceController::class, 'showAccount']);
+    Route::patch('/accounts/{customerId}', [CommerceController::class, 'updateAccount']);
+    Route::post('/accounts/{customerId}/link', [CommerceController::class, 'linkAccount']);
+    Route::post('/accounts/{customerId}/deactivate', [CommerceController::class, 'deactivateAccount']);
+});
 
-Route::post('/orders/lines', [CommerceController::class, 'deliver']);
-Route::get('/orders/{orderId}/lines/{lineId}', [CommerceController::class, 'showOrderLine']);
+Route::middleware('throttle:commerce-orders')->group(function () {
+    Route::post('/orders/lines', [CommerceController::class, 'deliver']);
+    Route::get('/orders/{orderId}/lines/{lineId}', [CommerceController::class, 'showOrderLine']);
 
-Route::get('/batches/{batchId}', [CommerceController::class, 'showBatch'])->whereUuid('batchId');
-Route::post('/batches/{batchId}/void', [CommerceController::class, 'voidBatch'])->whereUuid('batchId');
+    Route::get('/batches/{batchId}', [CommerceController::class, 'showBatch'])->whereUuid('batchId');
+    Route::post('/batches/{batchId}/void', [CommerceController::class, 'voidBatch'])->whereUuid('batchId');
+});

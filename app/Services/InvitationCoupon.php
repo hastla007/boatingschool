@@ -27,10 +27,15 @@ class InvitationCoupon
      */
     public function check(Tenant $tenant, string $code, string $email): array
     {
-        $coupon = Coupon::where('code', strtoupper(trim($code)))->whereNull('redeemed_at')->first();
-
-        if (! $coupon || ! $coupon->isUsable() || ($coupon->tenant_id !== null && $coupon->tenant_id !== $tenant->id)) {
+        // QA-D-7: dieselbe Code-Suche wie beim Einlösen (ohne Bindestriche,
+        // Leerzeichen, Kleinschreibung); nur freie oder eigene Codes.
+        $coupon = Coupon::lookup($code);
+        if (! $coupon || $coupon->isRedeemed() || ($coupon->tenant_id !== null && $coupon->tenant_id !== $tenant->id)) {
             return ['coupon' => null, 'error' => 'Dieser Code ist ungültig oder wurde bereits eingelöst.'];
+        }
+        // Gesperrte (z. B. verlorene Charge) oder abgelaufene Codes.
+        if (! $coupon->isUsable()) {
+            return ['coupon' => null, 'error' => 'Dieser Code ist nicht mehr gültig.'];
         }
 
         if ($coupon->isForProduct()) {

@@ -39,6 +39,18 @@ class CanonicalUrl
         return $scheme.'://'.self::display($tenant, $host);
     }
 
+    /** Wurzel des Superadmin-Bereichs: eigener Host (SUPERADMIN_HOST) oder die zentrale Domain. */
+    public static function superadminRoot(): string
+    {
+        $host = config('app.superadmin_host');
+        if (! $host) {
+            return self::root();
+        }
+        $scheme = app()->environment('production') ? 'https' : (app()->bound('request') ? request()->getScheme() : 'http');
+
+        return $scheme.'://'.$host;
+    }
+
     /**
      * Adresse ohne Schema, z. B. "lernen.example.de/mueller" (Pfad-Modus,
      * Standard) oder "mueller.lernen.example.de" (TENANT_URL_MODE=subdomain).

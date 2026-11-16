@@ -8,11 +8,12 @@ Worker und Deploy-Skript in der Oberfläche ein.
 
 | Datei | Zweck |
 |---|---|
-| `deploy.sh` | Update auf dem Server (Wartungsmodus, Code, Abhängigkeiten, Assets, Migrationen, Inhalte bei Bedarf, Caches, Go-live-Check); optional mit Release-Ordnern und Rollback |
+| `deploy.sh` | Update auf dem Server (Sperre, Abhängigkeiten/Build vorab, Wartungsmodus, Sicherung, Migrationen, Inhalte bei Bedarf, Caches, Go-live-Check); optional mit Release-Ordnern und Rollback |
 | `Caddyfile` | Webserver mit automatischen Zertifikaten, auch für eigene Domains der Schulen (empfohlen) |
 | `nginx.conf` | Alternative mit nginx und Wildcard-Zertifikat |
-| `crontab` | Scheduler (jede Minute) |
-| `supervisor-worker.conf` | Queue-Worker (Pflicht: Sammel-Mails laufen als Queue-Jobs) |
+| `php-fpm-pool.conf` | PHP-FPM-Pool (Benutzer, Limits, nur `.php` ausführen) |
+| `crontab` | Scheduler (jede Minute, Ausgabe nach `storage/logs/scheduler.log`) |
+| `supervisor-worker.conf` | Queue-Worker (Pflicht: Massen-Mails laufen über die Queue) |
 | `../.github/workflows/deploy.yml` | Deploy per Knopfdruck aus GitHub, Produktion oder Staging (optional) |
 
 ## 1. Erstinstallation
@@ -31,8 +32,12 @@ Worker und Deploy-Skript in der Oberfläche ein.
    setzen (Standard `prefer` ist nur für lokale Verbindungen gedacht und prüft kein Zertifikat).
 4. **Code**: `git clone … /var/www/boatingschool`, dann `cp .env.example .env` und ausfüllen:
    `APP_URL=https://lernen.example.de`, `CENTRAL_DOMAIN=lernen.example.de`, DB-Zugänge,
-   Mail-Zugang (SMTP des Mailanbieters), `MAIL_FROM_ADDRESS`, `BACKUP_DISK`, optional `SENTRY_LARAVEL_DSN`.
-   `TRUSTED_PROXIES` leer lassen, außer ein Load-Balancer steht davor.
+   Mail-Zugang (SMTP des Mailanbieters), `MAIL_FROM_ADDRESS`, `BACKUP_DISK` mit
+   `BACKUP_ENCRYPTION_PUBLIC_KEY` (§3), `OPS_HEARTBEAT_URL` und `OPS_ALERT_EMAIL` (§5),
+   `SUPERADMIN_HOST` (§4), optional `SENTRY_LARAVEL_DSN`.
+   `TRUSTED_PROXIES` leer lassen, außer ein Load-Balancer steht davor (dann dessen
+   Adressen, nie `*`). Danach `chmod 600 .env` (enthält `APP_KEY` und alle Zugangsdaten).
+   `SUPERADMIN_PASSWORD` nur für das erste `app:create-superadmin` setzen und danach entfernen.
 5. **Einrichten**:
    ```bash
    composer install --no-dev --optimize-autoloader
@@ -52,19 +57,21 @@ Worker und Deploy-Skript in der Oberfläche ein.
    Ausgehende Verbindungen braucht der Server zu: SMTP des Mailanbieters,
    `api.pwnedpasswords.com` (Prüfung auf geleakte Passwörter), optional S3-Speicher und Sentry.
 7. **Webserver**: `Caddyfile` nach `/etc/caddy/Caddyfile` (oder `nginx.conf` + certbot), neu laden.
-8. **Cron**: Zeile aus `crontab` mit `crontab -e` als Deploy-Benutzer eintragen.
-9. **Queue-Worker** (Pflicht): Mitteilungen mit Mailversand, „Alle erinnern“ und
-   Sammel-Einladungen verschickt nicht der Request, sondern ein Queue-Job je Paket von
-   50 Empfängern (`QUEUE_CONNECTION=database`). Ohne Worker bleiben diese Mails liegen.
-   `apt install supervisor`, dann `supervisor-worker.conf` nach
+8. **Cron**: Zeile aus `crontab` mit `crontab -e` als Deploy-Benutzer eintragen. Die Ausgabe
+   landet in `storage/logs/scheduler.log`; mit logrotate begrenzen (§5).
+9. **Queue-Worker** (Pflicht): `apt install supervisor`, dann `supervisor-worker.conf` nach
    `/etc/supervisor/conf.d/boatingschool-worker.conf` und
-   `supervisorctl reread && supervisorctl update`. Jeder Job läuft im Mandantenkontext
-   der Schule, die ihn ausgelöst hat (RLS wie im Request), und wird bei Mailfehlern
-   bis zu dreimal wiederholt (nach 1, 5 und 15 Minuten; bereits zugestellte Mails
-   gehen dabei nicht doppelt raus). Endgültig gescheiterte Jobs: `php artisan queue:failed`,
-   erneut anstoßen mit `php artisan queue:retry all`.
+   `supervisorctl reread && supervisorctl update`. Mitteilungen per Mail, Sammel-Einladungen,
+   Sammel-Verlängerungen, Lern-Erinnerungen an viele und Lerngruppen-Einladungen werden nur
+   eingereiht (`QUEUE_CONNECTION=database`) und erst vom Worker verschickt -- ohne Worker
+   bleiben diese Mails liegen. Jeder Job läuft im Kontext der Schule, aus deren Bereich die
+   Mail kommt (RLS, Absender wie im Request). `deploy.sh` startet den Worker nach jedem Update
+   neu (`queue:restart`). Endgültig gescheiterte Jobs: `php artisan queue:failed`, erneut
+   anstoßen mit `php artisan queue:retry all`.
 10. **Prüfen**: `php artisan app:check-production` bzw. im Superadmin unter „System“.
-   Nach einigen Minuten müssen Scheduler, Queue und (am nächsten Morgen) Datensicherung grün sein.
+   Nach einigen Minuten müssen Scheduler, Queue-Worker (Lebenszeichen) und (am nächsten
+   Morgen) Datensicherung grün sein; ein fälliger Job, der länger als 10 Minuten wartet,
+   gilt als hängend.
 
 ## 2. Updates einspielen
 
@@ -84,13 +91,24 @@ beiden Fällen nur einen Commit, für den „Tests“ grün ist. Die Secrets (`D
 verlangen. Bisherige Repository-Secrets in die Umgebung „production“ verschieben. Er baut die
 Frontend-Assets für genau diesen Commit in einem eigenen Job (`npm ci && npm run build`),
 kopiert `public/build` per `scp` in ein temporäres Verzeichnis auf dem Server und startet
-`deploy.sh` mit `BUILD_DIR` -- im Wartungsmodus wird dann nicht mehr gebaut. Die Option
+`deploy.sh` mit `BUILD_DIR` -- auf dem Server wird dann nicht gebaut. Die Option
 „with_content“ im Workflow entspricht `--with-content`.
-Bei einem Fehler bleibt die Seite im Wartungsmodus; Ursache beheben und das Skript erneut
-starten. Zurück ohne Update: `php artisan up`.
 
-**Assets**: Ohne `BUILD_DIR` (bzw. `--build-dir DIR`) baut das Skript wie bisher auf dem
-Server (Node nötig). Fehlt im Verzeichnis `manifest.json` oder gehört die beiliegende
+Ablauf (Modus `inplace`, Standard): Eine Sperre (`flock` auf `.deploy/lock`) verhindert zwei
+gleichzeitige Deploys. Der neue Stand wird zuerst nur geholt (nur Fast-forward, nur Commits
+auf dem Branch); Composer-Abhängigkeiten und Assets (bzw. der Build aus `BUILD_DIR`) entstehen
+in einem Vorbereitungsordner (`.deploy/staging`, ein `git worktree`), während die Seite
+weiterläuft. Erst dann folgen Wartungsmodus, Sicherung (`app:backup --deploy`), Umschalten
+(Code, `vendor/` und `public/build` per Umbenennen), Migrationen, Seeder (nur bei Bedarf) und
+Caches -- die Wartungszeit besteht im Wesentlichen aus Sicherung und Migrationen.
+
+Schlägt ein Schritt vor dem Wartungsmodus fehl, läuft die Seite unverändert weiter. Danach
+bleibt sie im Wartungsmodus; das Skript gibt den vorherigen Commit aus. Ursache beheben und
+das Skript erneut starten, zurück ohne Update mit `php artisan up` (nur wenn noch nicht
+umgeschaltet wurde) oder per Rückroll (unten).
+
+**Assets**: Ohne `BUILD_DIR` (bzw. `--build-dir DIR`) baut das Skript auf dem Server (Node
+nötig; vor dem Wartungsmodus im Vorbereitungs- bzw. Release-Ordner). Fehlt im Verzeichnis `manifest.json` oder gehört die beiliegende
 `build-sha.txt` zu einem anderen Commit, baut es ebenfalls auf dem Server und sagt das im Log.
 
 **Inhalte** (`db:seed`: Fragen, Erklärungen, Navigation, Praxistrainer; idempotent,
@@ -106,14 +124,38 @@ Das Log nennt jeweils, welcher Fall eingetreten ist („Seeder laufen: …“ bz
 setzen (leert den Opcache).
 
 Migrationen sind nur vorwärts gedacht. Das Skript zieht deshalb vor jedem Update eine
-Sicherung (`php artisan app:backup`); schlägt sie fehl, bricht der Deploy ab.
+Sicherung (`php artisan app:backup --deploy`: nur lokal, Ordner `<Zeitstempel>-deploy`, es
+bleiben die letzten `BACKUP_KEEP_DEPLOY`, Standard 3); schlägt sie fehl, bricht der Deploy ab.
 `php artisan queue:restart` am Ende lässt die Queue-Worker mit dem neuen Code neu starten.
+
+### Rückroll
+
+Ist das Update eingespielt, aber fehlerhaft (oder bricht es nach dem Umschalten ab), im
+Modus `inplace`:
+
+```bash
+cd /var/www/boatingschool
+php artisan down
+PREV=<vorheriger Commit aus der Deploy-Ausgabe>
+git checkout --quiet --detach "$PREV"
+composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+npm ci && npm run build
+# Nur wenn Migrationen gelaufen sind: Datenbank aus der Sicherung vor dem Deploy
+# zurückspielen (neuester Ordner storage/app/backups/<Zeitstempel>-deploy, Ablauf wie
+# in §3 „Backup zurückspielen“, ohne die ZIP-Dateien). Achtung: Änderungen seit dem
+# Deploy gehen dabei verloren.
+php artisan optimize && php artisan queue:restart && php artisan up
+```
+
+Der nächste reguläre Deploy (`./deploy/deploy.sh`) wechselt wieder auf `main` und spielt
+den dann korrigierten Stand ein. Im Modus `releases` geht der Code-Rückweg schneller mit
+`./deploy/deploy.sh --rollback` (nächster Abschnitt).
 
 ### Release-Ordner und Rollback (optional)
 
-Standard bleibt der Modus `inplace`: ein Git-Checkout, der im Wartungsmodus aktualisiert
-wird -- bestehende Server müssen nichts ändern. Mit `DEPLOY_MODE=releases` entsteht jedes
-Update in einem eigenen Ordner:
+Standard bleibt der Modus `inplace`: ein Git-Checkout, der wie oben aktualisiert wird --
+bestehende Server müssen nichts ändern. Mit `DEPLOY_MODE=releases` entsteht jedes Update in
+einem eigenen Ordner:
 
 ```text
 /var/www/boatingschool/
@@ -124,9 +166,10 @@ Update in einem eigenen Ordner:
 ```
 
 Abhängigkeiten, Assets und Caches baut das Skript, während der alte Stand weiterläuft; der
-Wartungsmodus umfasst nur Sicherung, Migrationen (aus dem neuen Stand) und das atomare
-Umschalten von `current`. Bricht etwas vor dem Umschalten ab, wird der halbe Ordner
-entfernt und der alte Stand läuft weiter (nach einem Fehler in den Migrationen bleibt der
+Wartungsmodus umfasst nur Sicherung (`app:backup --deploy`), Migrationen (aus dem neuen
+Stand) und das atomare Umschalten von `current`. Die Sperre liegt hier auf
+`<basis>/.deploy.lock`. Bricht etwas vor dem Umschalten ab, wird der halbe Ordner entfernt
+und der alte Stand läuft weiter (nach einem Fehler in den Migrationen bleibt der
 Wartungsmodus an: Fehler beheben und erneut starten, oder `php artisan up`).
 
 ```bash
@@ -166,60 +209,68 @@ einigen Tagen weg; `BACKUP_PATH` zeigt weiter auf `storage/app/backups` (jetzt i
 `app:backup` läuft täglich um 03:15 (Europe/Berlin) und legt unter `storage/app/backups/<Zeitstempel>/` ab:
 
 - `database.dump`: kompletter Datenbank-Dump (pg_dump, Custom-Format, inkl. Rechte und RLS-Policies)
-- `uploads.zip`: alle Uploads (Logos, Bilder, Kartenausschnitte, PDFs)
+- `uploads.zip`: öffentliche Uploads (Logos, Favicons, öffentliche Bilder; `storage/app/public`)
+- `protected-media.zip`: die geschützten Dateien der privaten Disk: Fragen- und
+  Praxistrainer-Bilder, Kartenausschnitte, Kursdateien der App, Tipp-PDFs und Bilder der
+  Videoschritte (`storage/app/private/question-media`, `…/navigation-charts`, `…/course-files`,
+  `…/tip-attachments`, `…/video-steps`) sowie jeder weitere Ordner dort; Videoschritt-Bilder
+  mit älterem Pfad außerhalb dieser Ordner kommen einzeln dazu. Sie werden nur über signierte bzw. geprüfte Adressen ausgeliefert und
+  gehören ausdrücklich in die Sicherung. Draußen bleiben nur kurzlebige Dateien
+  (Datenexporte `api-exports`/`exports`, Import-Uploads `imports`).
 - `manifest.json`: Zeitpunkt, Größen, SHA-256-Prüfsummen
+- `remote.json`: nur wenn die externe Kopie vollständig ist (wertet der Go-live-Check aus)
 
 Mit `BACKUP_DISK=s3` (S3-kompatibler Speicher, z. B. Hetzner Object Storage) geht jede Sicherung
 zusätzlich nach außen; das Paket `league/flysystem-aws-s3-v3` ist in `composer.json` enthalten
-(fehlt es, bleibt es bei der lokalen Sicherung, und `app:check-production` meldet das). Lokale
-Aufbewahrung: `BACKUP_KEEP_DAYS` (Standard 14). Videos liegen beim Videoanbieter und sind nicht
-Teil der Sicherung.
+(fehlt es, bleibt es bei der lokalen Sicherung, und `app:check-production` meldet das).
+Aufbewahrung: `BACKUP_KEEP_DAYS` (Standard 14). Videos liegen beim Videoanbieter und sind
+nicht Teil der Sicherung. Schlägt nur die externe Kopie fehl, bleibt die lokale Sicherung
+erhalten; der Lauf endet trotzdem mit Fehler (Betriebsalarm an `OPS_ALERT_EMAIL`), und der
+Go-live-Check meldet „Externe Sicherung erfolgreich“ als Fehler, bis wieder eine Kopie
+vollständig ist.
 
-**Verschlüsselung** (empfohlen, sobald Sicherungen den Server verlassen): Die Sicherung wird mit
-einem öffentlichen Schlüssel verschlüsselt; der private liegt nicht auf dem Server. Wer Server
-oder S3-Zugang übernimmt, kann alte Sicherungen damit nicht lesen.
+**Verschlüsselung (dringend empfohlen):** Mit `BACKUP_ENCRYPTION_PUBLIC_KEY` werden alle
+Dateien außer `manifest.json` vor dem Hochladen verschlüsselt (`*.enc`; libsodium:
+X25519-versiegelter Schlüssel je Datei, XChaCha20-Poly1305 im Datenstrom, Manipulation
+und abgeschnittene Dateien werden erkannt). Lokal bleiben die Dateien unverschlüsselt.
+Der geheime Schlüssel liegt nicht auf dem Server: Wer Server oder S3-Zugang übernimmt, kann
+die externen Kopien damit nicht lesen.
 
 ```bash
-# auf einem ANDEREN Rechner (z. B. Admin-Laptop), privaten Schlüssel sicher aufbewahren
-# (Passwortmanager, zweite Kopie offline):
-age-keygen -o boatingschool-backup.key        # gibt "Public key: age1..." aus
-# auf dem Server:
-sudo apt install age
-# .env: BACKUP_ENCRYPT_RECIPIENT=age1...
+# Auf einem Arbeitsrechner mit ausgecheckter App (nicht auf dem Server):
+php artisan app:backup-keygen --secret-key-file=backup-geheim.key
+# -> Zeile BACKUP_ENCRYPTION_PUBLIC_KEY=… in die .env des Servers,
+#    backup-geheim.key in den Passwortmanager/Tresor (ohne ihn sind die Kopien wertlos).
 ```
 
-Dann entstehen `database.dump.age` und `uploads.zip.age` (der Klartext wird sofort gelöscht,
-`manifest.json` nennt Verfahren und Prüfsummen der verschlüsselten Dateien). Ohne age, aber
-mit `BACKUP_GPG_RECIPIENT` (öffentlicher Schlüssel per `gpg --import` beim Deploy-Benutzer
-importiert) wird mit GnuPG verschlüsselt (`.gpg`). Ist ein Empfänger gesetzt, das Programm
-aber nicht installiert, schlägt die Sicherung fehl (Betriebsalarm), statt unverschlüsselt
-zu sichern.
+Probe nach der ersten Sicherung: eine `.enc`-Datei herunterladen und mit
+`php artisan app:backup-decrypt database.dump.enc --key-file=backup-geheim.key` entschlüsseln;
+die ausgegebene SHA-256-Prüfsumme muss zu `manifest.json` passen.
 
-**Externe Aufbewahrung ohne Löschrecht**: Standardmäßig löscht `app:backup` alte Sicherungen
-nur lokal (`BACKUP_REMOTE_PRUNE=false`). Wer mit den Zugangsdaten vom Server löschen darf,
-könnte bei einem Einbruch auch alle externen Kopien löschen. Deshalb im Bucket:
+**Löschschutz:** Der Server sollte die externen Kopien nicht löschen können -- sonst kann
+ein Angreifer mit Serverzugriff (oder Ransomware) auch sie entfernen.
 
-- **Versionierung** und **Object Lock** (Modus *Compliance* oder *Governance*, Aufbewahrung
-  z. B. 30 Tage) beim Anlegen des Buckets einschalten (bei Hetzner/AWS nur beim Anlegen
-  möglich).
-- **Lifecycle-Regel**: Objekte unter `backups/` nach z. B. 35 Tagen ablaufen lassen, ältere
-  Versionen ebenfalls (Noncurrent Version Expiration).
-- Für den Server einen eigenen Zugang mit nur `PutObject`/`ListBucket` (kein `DeleteObject`).
-
-`BACKUP_REMOTE_PRUNE=true` stellt das alte Verhalten wieder her (externe Sicherungen nach
-`BACKUP_KEEP_DAYS` löschen) -- nur sinnvoll ohne Object Lock.
+- Bucket mit **Versionierung** und **Object Lock** (Modus „Compliance“ oder „Governance“,
+  z. B. 30 Tage) anlegen (bei Hetzner/AWS nur beim Anlegen möglich) und eine
+  **Lifecycle-Regel** setzen, die `backups/` nach `BACKUP_KEEP_DAYS` (plus Sperrfrist)
+  löscht, ältere Versionen ebenfalls (Noncurrent Version Expiration). Dann
+  `BACKUP_PRUNE_REMOTE=false`: `app:backup` löscht extern nichts mehr.
+- Zugangsschlüssel des Servers nur mit Schreibrecht auf `backups/*` (`s3:PutObject`); ohne
+  `s3:DeleteObject` und ohne Rechte zum Ändern von Bucket-Einstellungen. Mit
+  `BACKUP_PRUNE_REMOTE=true` (Standard: externe Sicherungen nach `BACKUP_KEEP_DAYS` löschen,
+  nur sinnvoll ohne Object Lock) braucht er zusätzlich `s3:ListBucket` und `s3:DeleteObject`.
+- Optional `OPS_BACKUP_HEARTBEAT_URL`: Ping an einen Heartbeat-Dienst nach jeder erfolgreichen
+  täglichen Sicherung (bleibt er aus, alarmiert der Dienst).
 
 **Probe-Wiederherstellung**: `php artisan app:backup:verify` (monatlich am 2. um 04:40 per
-Scheduler, Betriebsalarm bei Fehlern) prüft die Prüfsummen der neuesten lokalen Sicherung,
-spielt den Dump in eine temporäre Datenbank (`<db>_verify_<Zeitstempel>`), prüft, dass
-wichtige Tabellen Zeilen haben (`BACKUP_VERIFY_TABLES`) und die Migrationen zur laufenden
-Datenbank passen, und löscht die temporäre Datenbank wieder. Dafür braucht die Owner-Rolle
-das Recht, Datenbanken anzulegen (einmalig als postgres:
-`ALTER ROLE boatingschool CREATEDB;`), sonst meldet der Befehl genau das. Verschlüsselte
-Sicherungen prüft er auf dem Server nur per Prüfsumme (der private Schlüssel gehört nicht
-dorthin); die vollständige Probe auf einem anderen Rechner mit Kopie der Sicherung und
-`BACKUP_AGE_IDENTITY=/pfad/boatingschool-backup.key` (GnuPG: privater Schlüssel im
-Schlüsselbund und `BACKUP_GPG_DECRYPT=true`) ausführen, z. B. auf dem Staging-Server.
+Scheduler, Betriebsalarm bei Fehlern) nimmt die neueste lokale Sicherung (oder `--path=`),
+prüft ihre Prüfsummen, spielt den Dump in eine temporäre Datenbank (`<db>_verify_<Zeitstempel>`),
+prüft, dass wichtige Tabellen Zeilen haben (`BACKUP_VERIFY_TABLES`) und die Migrationen zur
+laufenden Datenbank passen, und löscht die temporäre Datenbank wieder. Dafür braucht die
+Owner-Rolle das Recht, Datenbanken anzulegen (einmalig als postgres:
+`ALTER ROLE boatingschool CREATEDB;`), sonst meldet der Befehl genau das. Lokale Sicherungen
+sind unverschlüsselt, ein Schlüssel ist dafür nicht nötig; die verschlüsselten externen
+Kopien prüft man mit der Entschlüsselungsprobe oben (`app:backup-decrypt`).
 
 ### Backup zurückspielen
 
@@ -231,6 +282,10 @@ Geheimnisse der Shop-Anbindung (`COMMERCE_*_SECRET`) und die Zugangsdaten für
 Datenbank, Mail und S3 deshalb getrennt und sicher aufbewahren (z. B. im
 Passwortmanager) und beim Zurückspielen wieder in `.env` eintragen.
 
+Aus der externen Kopie: den Ordner `backups/<Zeitstempel>/` herunterladen und die
+`.enc`-Dateien vorher entschlüsseln (`php artisan app:backup-decrypt <Datei>.enc
+--key-file=backup-geheim.key`, auf jedem Rechner mit ausgecheckter App, ohne Datenbank).
+
 Auf einem Server mit denselben Rollen (`boatingschool`, `boatingschool_app`):
 
 ```bash
@@ -239,13 +294,11 @@ php artisan down
 sudo -u postgres psql -c "DROP DATABASE boatingschool" -c "CREATE DATABASE boatingschool OWNER boatingschool" \
   -c "GRANT CONNECT ON DATABASE boatingschool TO boatingschool_app"
 B=storage/app/backups/<Zeitstempel>   # bzw. vom S3-Speicher heruntergeladen
-# nur bei verschlüsselter Sicherung: erst entschlüsseln (privater Schlüssel, siehe oben)
-age -d -i boatingschool-backup.key -o $B/database.dump $B/database.dump.age
-age -d -i boatingschool-backup.key -o $B/uploads.zip $B/uploads.zip.age
-#   (GnuPG: gpg --decrypt --output $B/database.dump $B/database.dump.gpg, ebenso uploads.zip)
+# externe Kopie: .enc-Dateien vorher mit app:backup-decrypt entschlüsseln (siehe oben)
 PGPASSWORD=… pg_restore -h 127.0.0.1 -U boatingschool -d boatingschool --exit-on-error $B/database.dump
 # Uploads
 unzip -o $B/uploads.zip -d storage/app/public
+unzip -o $B/protected-media.zip -d storage/app/private   # falls vorhanden
 php artisan optimize:clear && php artisan optimize && php artisan up
 ```
 
@@ -268,18 +321,54 @@ funktionieren danach weiter.
   nur für Subdomains ein Wildcard-Zertifikat per DNS-Challenge; eigene Domains der Schulen je
   einzeln per certbot.
 
+**Superadmin-Bereich getrennt halten (Empfehlung für Produktion).** Im Pfad-Modus liegen alle
+Schulen und der Superadmin unter demselben Ursprung (`lernen.example.de`). Die Cookies sind
+zwar je Pfad getrennt, das ist aber keine Sicherheitsgrenze: Skript auf einer Schulseite
+(z. B. eine XSS-Lücke) könnte im selben Browser Seiten des Superadmins lesen und Anfragen
+dorthin schicken. Deshalb `SUPERADMIN_HOST` setzen (z. B. `admin.lernen.example.de`, DNS-Eintrag
+auf den Server; Caddy holt das Zertifikat automatisch, bei nginx den Namen ins Zertifikat und
+in `server_name` aufnehmen). Dann ist `/superadmin` nur noch dort erreichbar (überall sonst
+404), mit eigenem Session-Cookie; Superadmins melden sich dort an. `SESSION_DOMAIN` dabei leer
+lassen. Alternativ den Subdomain-Modus nutzen. Der Go-live-Check weist im Pfad-Modus ohne
+`SUPERADMIN_HOST` darauf hin.
+
 ## 5. Überwachung
 
+- **Totmann-Schalter (Pflicht)**: Der Go-live-Check und die Betriebsalarme laufen selbst über
+  den Scheduler -- steht Cron oder der ganze Server, meldet sich niemand. Deshalb bei einem
+  externen Heartbeat-Dienst (z. B. healthchecks.io, Better Stack Heartbeats, Cronitor) einen
+  Check mit Intervall 1 Minute und Karenz ca. 10 Minuten anlegen und dessen Ping-Adresse als
+  `OPS_HEARTBEAT_URL` eintragen; der Scheduler pingt sie jede Minute. Bleibt der Ping aus,
+  alarmiert der Dienst per Mail/SMS. Der Go-live-Check warnt, solange die Adresse fehlt.
+- **Alarmempfänger**: `OPS_ALERT_EMAIL` (sonst die Support-Adresse der Plattform); fehlt beides,
+  meldet der Go-live-Check einen Fehler.
 - **Erreichbarkeit**: externen Uptime-Dienst (z. B. UptimeRobot, Better Stack) auf
   `https://lernen.example.de/up` richten (liefert 200, ohne Session/Datenbankzugriff).
 - **Fehler**: `SENTRY_LARAVEL_DSN` setzen (EU-Standort), sonst nur `storage/logs/laravel-*.log`
   (14 Tage, `LOG_DAILY_DAYS`).
 - **Go-live-Check**: `php artisan app:check-production` (Exit-Code 1 bei Fehlern, eignet sich
-  für einen täglichen Cron mit Mail bei Fehlern) bzw. Superadmin → „System“.
-- **Queue**: `app:check-production` meldet Jobs, die länger als 15 Minuten warten (Worker
-  läuft nicht), fehlgeschlagene Jobs (`php artisan queue:failed`) und Sammel-Mail-Pakete, die
-  nach drei Versuchen aufgegeben wurden (Details im Log, Eintrag „Sammel-Mail-Job endgültig
-  fehlgeschlagen“).
+  für einen täglichen Cron mit Mail bei Fehlern) bzw. Superadmin → „System“. Er prüft u. a.
+  auch die letzte vollständige externe Sicherung, deren Verschlüsselung, den freien Speicher
+  (mind. dreimal die letzte Sicherung), `TRUSTED_PROXIES`, die Rechte der `.env` und
+  `SESSION_SECURE_COOKIE`.
+- **Logs**: Die Webserver-Vorlagen schreiben Zugriffslogs ohne Query-Strings und ohne Token im
+  Pfad (Passwort-Reset, Signaturen, E-Mail-Adressen) und behalten sie 14 Tage (Caddy:
+  `roll_keep_for`; nginx: logrotate mit `daily`/`rotate 14`). Scheduler-Ausgabe begrenzen, z. B.
+  `/etc/logrotate.d/boatingschool`:
+  ```
+  /var/www/boatingschool/storage/logs/scheduler.log {
+      daily
+      rotate 14
+      compress
+      missingok
+      notifempty
+      copytruncate
+  }
+  ```
+  Im Modus `releases` liegt die Datei unter `<basis>/shared/storage/logs/`.
+- **Queue**: `app:check-production` meldet einen Worker ohne Lebenszeichen (über 5 Minuten)
+  und fällige Jobs, die länger als 10 Minuten warten; fehlgeschlagene Mails unter
+  `php artisan queue:failed` (erneut senden: `queue:retry`).
 
 ## 6. E-Mail-Zustellung
 
@@ -323,6 +412,14 @@ sie im Spam, kommen Lernende nicht in ihr Konto. Deshalb:
 - **Reverse DNS** ist nur nötig, wenn der Server selbst versendet (nicht empfohlen).
 
 ## 7. Datenschutz im Betrieb
+
+**Datenexport einer Schule** (Vertragsende): der Download im Superadmin-Bereich wird gestreamt,
+unterliegt aber dem Zeitlimit von PHP-FPM (`request_terminate_timeout` 300 s, einschließlich der
+Übertragung). Gemessen (Testsystem, je Mitglied 200 Fortschrittszeilen und 600 Lernversuche):
+rund 30 ms und 25 Abfragen je Mitglied, etwa 0,2 MB JSON je Mitglied -- 300 Mitglieder ≈ 9 s und
+58 MB. Ab einigen tausend Mitgliedern bzw. bei langsamer Verbindung deshalb auf dem Server
+exportieren: `php artisan app:export-tenant <slug> /pfad/export.json` (gleicher Inhalt, ohne
+Zeitlimit, Datei nur für den Betreiber lesbar; nach der Übergabe löschen).
 
 Auftragsverarbeitungsverträge mit Hoster, Mail-, Speicher-, Video- und Fehlertracking-Anbieter
 abschließen; Standorte möglichst in der EU. Die Datenschutzerklärung (Superadmin → Website)

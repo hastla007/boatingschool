@@ -69,7 +69,7 @@ class ImpersonationController extends Controller
 
         // Zwischenseite statt Redirect: die CSP (form-action 'self') blockiert Redirects nach einem Formular auf eine andere Domain.
         return response()->view('impersonation.ended', [
-            'url' => CanonicalUrl::root().($userId && $impersonation ? route('superadmin.users.show', $userId, false) : route('superadmin.dashboard', [], false)),
+            'url' => CanonicalUrl::superadminRoot().($userId && $impersonation ? route('superadmin.users.show', $userId, false) : route('superadmin.dashboard', [], false)),
         ]);
     }
 

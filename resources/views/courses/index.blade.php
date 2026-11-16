@@ -127,6 +127,9 @@
                     </div>
                     <div class="pt-4 pb-4 px-4 text-center">
                         <div class="font-semibold text-slate-600 dark:text-slate-300">{{ $course->name }}</div>
+                        @if (($partialCourseIds ?? collect())->contains($course->id))
+                            <div class="text-xs text-slate-600 dark:text-slate-400 mt-1">Teilzugang in der App</div>
+                        @endif
                         @if ($isExpired)
                             <div class="text-xs text-amber-600 dark:text-amber-400 mt-1">Zugang abgelaufen</div>
                             @if ($renewalWebshopLink)

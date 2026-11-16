@@ -25,7 +25,11 @@ class ExamActions
     /** Die Frage bzw. Navigation war schon beantwortet: die erste Antwort zählt. */
     public const ALREADY_ANSWERED = 'already_answered';
 
-    /** Zeit abgelaufen: die Prüfung wurde dabei ausgewertet. */
+    /**
+     * Zeit abgelaufen: die Prüfung wurde dabei ausgewertet -- außer während
+     * der Nachfrist bzw. Selbsteinschätzung der Navigation (stillOpen()),
+     * dann bleibt sie dafür offen.
+     */
     public const EXPIRED = 'expired';
 
     /** Die Prüfung war bereits ausgewertet. */
@@ -49,9 +53,13 @@ class ExamActions
         abort_if($examSession->status !== 'running', 409);
 
         // Sicherheitsreview M2: nach Ablauf der Zeit zählt keine Antwort mehr;
-        // die Prüfung wird sofort ausgewertet.
+        // die Prüfung wird sofort ausgewertet. QA-L-8: nicht während der
+        // Navigations-Nachfrist (wie requireRunning() der Mobile-API) --
+        // sonst ging die noch abzugebende Navigation verloren.
         if ($this->evaluation->timeExpired($examSession)) {
-            $this->evaluation->evaluate($examSession);
+            if (! $examSession->stillOpen(true)) {
+                $this->evaluation->evaluate($examSession);
+            }
 
             return self::EXPIRED;
         }
@@ -122,7 +130,7 @@ class ExamActions
             }
         });
 
-        if ($outcome === self::EXPIRED) {
+        if ($outcome === self::EXPIRED && ! $examSession->stillOpen(true)) {
             $this->evaluation->evaluate($examSession);
         }
 

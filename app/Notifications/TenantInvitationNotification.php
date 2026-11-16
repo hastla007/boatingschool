@@ -5,9 +5,11 @@ namespace App\Notifications;
 use App\Models\TenantInvitation;
 use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
+use App\Notifications\Concerns\SentFromSchool;
 use App\Support\CanonicalUrl;
 use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -19,14 +21,39 @@ use Illuminate\Notifications\Notification;
  * eingeloggt ist (InvitationAcceptController). Wird an die eingeladene
  * Adresse geschickt, nicht an ein evtl. schon vorhandenes, aber
  * unbestätigtes Fremdkonto mit derselben Adresse.
+ *
+ * Audit ARC-2: die Sammel-Einladung reiht sie in die Queue ein, Einzel-
+ * Einladungen gehen direkt (notifyNow). Die Einladung (RLS) wird nur mit
+ * ihren Werten gespeichert und im Job über die ID neu geladen.
  */
-class TenantInvitationNotification extends Notification
+class TenantInvitationNotification extends Notification implements ShouldQueue
 {
     use AddsNoReplyHint;
     use EscapesMarkdown;
     use Queueable;
+    use SentFromSchool;
 
-    public function __construct(private readonly TenantInvitation $invitation) {}
+    private readonly string $invitationId;
+
+    public function __construct(TenantInvitation $invitation)
+    {
+        $this->invitationId = $invitation->id;
+        $this->captureSchool($invitation->tenant_id);
+        $this->afterCommit();
+    }
+
+    /** Inzwischen zurückgezogene oder angenommene Einladung: keine Mail mehr. */
+    public function shouldSend(mixed $notifiable, string $channel): bool
+    {
+        $invitation = $this->invitation();
+
+        return $invitation !== null && $invitation->accepted_at === null;
+    }
+
+    private function invitation(): ?TenantInvitation
+    {
+        return TenantInvitation::find($this->invitationId);
+    }
 
     /** @return array<int, string> */
     public function via(mixed $notifiable): array
@@ -36,18 +63,19 @@ class TenantInvitationNotification extends Notification
 
     public function toMail(mixed $notifiable): MailMessage
     {
+        $invitation = $this->invitation() ?? throw new \RuntimeException('Einladung nicht mehr vorhanden.');
         // Subdomain der Bootsschule statt des Request-Hosts (Custom Domain), siehe CanonicalUrl.
         $url = CanonicalUrl::temporarySignedRoute(
             'invitations.accept',
             now()->addDays(7),
-            ['invitation' => $this->invitation->id, 'hash' => sha1($this->invitation->email)],
-            $this->invitation->tenant,
+            ['invitation' => $invitation->id, 'hash' => sha1($invitation->email)],
+            $invitation->tenant,
         );
 
-        $tenantName = $this->invitation->tenant->name ?? 'einer Bootsschule';
+        $tenantName = $invitation->tenant->name ?? 'einer Bootsschule';
 
         // Team-Einladungen gesiezt (wie der Admin-Bereich), Teilnehmer geduzt.
-        $role = $this->invitation->role;
+        $role = $invitation->role;
         $formal = $role !== 'learner';
         $as = match ($role) {
             'owner' => 'als Inhaber',

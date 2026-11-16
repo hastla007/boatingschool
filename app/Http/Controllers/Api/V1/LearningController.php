@@ -10,11 +10,13 @@ use App\Api\QuestionPresenter;
 use App\Http\Controllers\Controller;
 use App\Models\Attempt;
 use App\Models\ContentQuestionRevision;
+use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
 use App\Models\FavoriteCollectionItem;
 use App\Models\Progress;
 use App\Services\LearningFlow;
+use App\Support\AnswerToken;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,9 +47,12 @@ class LearningController extends Controller
         ]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $mode = ! empty($validated['collection_id']) ? 'favorites' : ($validated['mode'] ?? 'smarttrainer');
+        // Funktionszugang reicht (QA-L-4); ausgespielt werden nur freigegebene
+        // Fragen (Probezugang: erste N je Modul, Drip-Sperre, QA-L-5).
+        $capability = $mode === 'favorites' ? 'favorites' : 'smarttrainer';
+        $course = $this->access->require($tenant, $user, $courseId, $capability);
         DailyQuestionLimit::ensureAvailable($user);
-        $mode = $validated['mode'] ?? 'smarttrainer';
         $questionIds = isset($validated['question_ids']) ? array_values(array_filter(explode(',', $validated['question_ids']))) : null;
         // Review-Runde 13: eine Favoriten-Sammlung üben.
         if (! empty($validated['collection_id'])) {
@@ -56,12 +61,18 @@ class LearningController extends Controller
             if (! $collection) {
                 throw ApiProblem::notFound('Sammlung');
             }
-            $mode = 'favorites';
             $questionIds = FavoriteCollectionItem::where('tenant_id', $tenant->id)->where('favorite_collection_id', $collection->id)
                 ->pluck('question_id')->unique()->values()->all();
         }
 
-        $next = $this->flow->nextQuestion($tenant, $user, $course, $mode, $validated['topic'] ?? null, $validated['module_id'] ?? null, $questionIds);
+        $moduleId = $validated['module_id'] ?? null;
+        if ($moduleId !== null && ($module = $course->modules->firstWhere('id', $moduleId))
+            && $this->access->isDripLocked($tenant, $user, $course, 'smarttrainer', (string) $module->code)) {
+            throw CourseAccess::itemLocked();
+        }
+
+        $next = $this->flow->nextQuestion($tenant, $user, $course, $mode, $validated['topic'] ?? null, $moduleId, $questionIds,
+            $this->access->learnableQuestionIds($tenant, $user, $course, $capability));
         if (! $next) {
             return response()->noContent();
         }
@@ -83,12 +94,54 @@ class LearningController extends Controller
 
         return response()->json(['data' => [
             'question' => $question,
+            // Schlüssel für POST …/trainer/reveal (WP-kompatibel): die ausgelieferte Revision.
+            'answer_token' => $revision->id,
             'mode' => $mode,
             'selection_reason' => $next['reason'] ?? null,
             'is_favorite' => Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->where('context', Favorite::CONTEXT_SMART_LEARNING)->where('question_id', $revision->question_id)->exists(),
             'learning_state' => $progress?->learning_state ?? 'neu',
             'streak' => ['current' => min((int) ($progress?->current_streak ?? 0), 3), 'required' => 3],
+        ]]);
+    }
+
+    /**
+     * Musterantwort einer offenen Frage im Lernmodus aufdecken (WP-kompatibler
+     * Abruf). answer_token ist die in …/trainer/next ausgelieferte Revision;
+     * Kurszugang und Kurszugehörigkeit werden bei jedem Abruf neu geprüft,
+     * Fragen einer laufenden Prüfung bleiben gesperrt.
+     */
+    public function reveal(Request $request, string $courseId): JsonResponse
+    {
+        $validated = $request->validate(['answer_token' => ['required', 'uuid']]);
+        $tenant = $this->tenantContext->tenant();
+        $user = $request->user();
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
+
+        $revision = ContentQuestionRevision::with('answers')->where('id', $validated['answer_token'])
+            ->whereIn('editorial_status', ['published', 'deprecated'])
+            ->whereHas('question', fn ($q) => $q->currentlyValid())
+            ->first();
+        if (! $revision || ! $course->contentQuestionIds()->contains($revision->question_id)) {
+            throw ApiProblem::notFound('Frage');
+        }
+        if (! $this->access->allowsQuestion($tenant, $user, $course, $revision->question_id)) {
+            throw CourseAccess::itemLocked();
+        }
+        if ($revision->question_type !== 'open_text') {
+            throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, [
+                'answer_token' => ['Nur offene Fragen haben eine aufzudeckende Musterantwort.'],
+            ]);
+        }
+        if (ExamSession::blockedQuestionIdsFor($user->id)->contains($revision->question_id)) {
+            throw new ApiProblem(409, 'EXAM_QUESTION_LOCKED', 'Frage gerade in der Prüfung',
+                'Diese Frage ist Teil einer laufenden Prüfung und kann währenddessen nicht im Lernmodus bearbeitet werden.');
+        }
+
+        return response()->json(['data' => [
+            'question_id' => $revision->question_id,
+            'revision_id' => $revision->id,
+            'model_answer' => $revision->correctAnswer()?->answer_text,
         ]]);
     }
 
@@ -105,11 +158,17 @@ class LearningController extends Controller
         ]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $capability = ($validated['mode'] ?? null) === 'favorites' ? 'favorites' : 'smarttrainer';
+        $course = $this->access->require($tenant, $user, $courseId, $capability);
 
         $revision = ContentQuestionRevision::find($validated['revision_id']);
         if (! $revision || $revision->question_id !== $validated['question_id']) {
             throw ApiProblem::notFound('Frage');
+        }
+        // Nur freigegebene Fragen (Probezugang, Drip) -- wie die Auswahl in next().
+        if ($course->contentQuestionIds()->contains($revision->question_id)
+            && ! $this->access->allowsQuestion($tenant, $user, $course, $revision->question_id, $capability)) {
+            throw CourseAccess::itemLocked();
         }
         $selected = $validated['selected_answer_ids'] ?? [];
         if ($revision->question_type === 'open_text' && ! array_key_exists('known', $validated)) {
@@ -120,6 +179,14 @@ class LearningController extends Controller
         }
         if ($revision->question_type !== 'multi_choice' && $revision->question_type !== 'open_text' && count($selected) > 1) {
             throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, ['selected_answer_ids' => ['Bei dieser Frage ist genau eine Antwort richtig.']]);
+        }
+
+        // Kennungen je Person (SEC-A1) in echte Antwort-IDs der Revision umsetzen.
+        if ($revision->question_type !== 'open_text' && $selected !== []) {
+            $selected = AnswerToken::resolveMany($user->id, $selected, $revision->answers()->pluck('id'));
+            if (in_array(AnswerToken::UNKNOWN, $selected, true)) {
+                throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, ['selected_answer_ids' => ['Unbekannte Antwort.']]);
+            }
         }
 
         try {
@@ -150,10 +217,15 @@ class LearningController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $attempt = Attempt::where('id', $attemptId)->where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->first();
         if (! $attempt) {
             throw ApiProblem::notFound('Versuch');
+        }
+        // Keine Lösung zu einer Frage, die gerade in einer laufenden Prüfung steckt (QA-L-7).
+        if (ExamSession::blockedQuestionIdsFor($user->id)->contains($attempt->question_id)) {
+            throw new ApiProblem(409, 'EXAM_QUESTION_LOCKED', 'Frage gerade in der Prüfung',
+                'Diese Frage ist Teil einer laufenden Prüfung; die Auflösung ist erst nach der Abgabe verfügbar.');
         }
 
         return response()->json(['data' => $this->result($attempt)]);
@@ -170,8 +242,8 @@ class LearningController extends Controller
             'attempt_id' => $attempt->id,
             'question_id' => $attempt->question_id,
             'correct' => (bool) $attempt->correct,
-            'selected_answer_ids' => array_values($selected),
-            ...QuestionPresenter::solution($revision, (bool) $attempt->correct),
+            'selected_answer_ids' => AnswerToken::mapMany($attempt->user_id, $selected),
+            ...QuestionPresenter::solution($revision, (bool) $attempt->correct, $attempt->user_id),
             'learning_state' => $progress?->learning_state ?? 'neu',
             'streak' => ['current' => min((int) ($progress?->current_streak ?? 0), 3), 'required' => 3],
             'completed' => ($progress?->learning_state ?? null) === 'gefestigt',

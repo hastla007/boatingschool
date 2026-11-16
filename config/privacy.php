@@ -31,12 +31,9 @@ return [
     // (BACKUP_DISK) und ob die Sicherungen dort verschlüsselt liegen.
     'backups' => [
         'provider' => env('PRIVACY_BACKUP_PROVIDER'),        // z. B. "Hetzner Online GmbH, Deutschland"
-        // Standard: verschlüsselt, sobald app:backup einen Empfängerschlüssel hat
-        // (BACKUP_ENCRYPT_RECIPIENT bzw. BACKUP_GPG_RECIPIENT).
-        'encrypted' => (bool) env(
-            'PRIVACY_BACKUPS_ENCRYPTED',
-            filled(env('BACKUP_ENCRYPT_RECIPIENT')) || filled(env('BACKUP_GPG_RECIPIENT')),
-        ),
+        // Standard: verschlüsselt, sobald app:backup einen öffentlichen
+        // Schlüssel für die externen Kopien hat (BACKUP_ENCRYPTION_PUBLIC_KEY).
+        'encrypted' => (bool) env('PRIVACY_BACKUPS_ENCRYPTED', filled(env('BACKUP_ENCRYPTION_PUBLIC_KEY'))),
     ],
 
     // Staaten der EU und des EWR: kein Hinweis auf eine Drittlandübermittlung.

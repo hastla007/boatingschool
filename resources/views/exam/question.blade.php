@@ -27,7 +27,7 @@
         </div>
 
         @foreach ($current->revision->media as $media)
-            <img src="{{ $media->storage_path }}" alt="{{ $media->alt_text }}" class="rounded-lg mb-4 max-h-64 mx-auto">
+            <img src="{{ \App\Support\QuestionMedia::url($media) }}" alt="{{ $media->alt_text }}" class="rounded-lg mb-4 max-h-64 mx-auto">
         @endforeach
 
         <h3 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $current->revision->question_text }}</h3>
@@ -41,7 +41,7 @@
                 <div class="space-y-2">
                     @foreach ($current->revision->answers as $answer)
                         <label class="flex items-center gap-3 border border-slate-200 dark:border-slate-600 hover:border-slate-400 rounded-xl px-4 py-3 cursor-pointer transition">
-                            <input type="checkbox" name="answer_ids[]" value="{{ $answer->id }}" x-model="selected" class="shrink-0">
+                            <input type="checkbox" name="answer_ids[]" value="{{ \App\Support\AnswerToken::for(auth()->id(), $answer->id) }}" x-model="selected" class="shrink-0">
                             <span class="text-slate-700 dark:text-slate-200">{{ $answer->answer_text }}</span>
                         </label>
                     @endforeach
@@ -127,7 +127,7 @@
                 <div class="space-y-2">
                     @foreach ($current->revision->answersInDisplayOrderFor(auth()->id()) as $answer)
                         <label class="flex items-center gap-3 border border-slate-200 dark:border-slate-600 hover:border-slate-400 rounded-xl px-4 py-3 cursor-pointer transition">
-                            <input type="radio" name="answer_id" value="{{ $answer->id }}" x-model="selected" class="shrink-0">
+                            <input type="radio" name="answer_id" value="{{ \App\Support\AnswerToken::for(auth()->id(), $answer->id) }}" x-model="selected" class="shrink-0">
                             <span class="text-slate-700 dark:text-slate-200">{{ $answer->answer_text }}</span>
                         </label>
                     @endforeach

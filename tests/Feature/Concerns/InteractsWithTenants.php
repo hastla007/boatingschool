@@ -134,7 +134,10 @@ trait InteractsWithTenants
     protected function createTestTenant(string $namePrefix = 'Test Schule'): Tenant
     {
         return $this->onAdmin(function () use ($namePrefix) {
-            $slug = Str::slug($namePrefix).'-'.Str::random(8);
+            // Kleingeschrieben wie echte Slugs (Validierung beim Anlegen): mit
+            // Großbuchstaben erkennt ResolveTenantPath den Pfad nie als Schule,
+            // Pfad-Modus-Tests liefen dann nur zufällig (~1 %) durch ihn.
+            $slug = Str::slug($namePrefix).'-'.Str::lower(Str::random(8));
 
             $tenant = Tenant::create(['slug' => $slug, 'name' => $namePrefix, 'status' => 'active']);
             TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#123456']);

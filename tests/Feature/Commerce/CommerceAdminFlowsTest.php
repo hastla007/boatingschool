@@ -52,7 +52,17 @@ class CommerceAdminFlowsTest extends TestCase
         $this->call('POST', $uri, [], [], [], $this->transformHeadersToServerVars(Signature::headers('shop', 'test-secret-123', 'POST', $uri, $body)
             + ['Content-Type' => 'application/json', 'Accept' => 'application/json']), $body)->assertSuccessful();
         $account = $this->onAdmin(fn () => CommerceShopAccount::where('shop_id', $this->shopId)->where('shop_customer_id', $customerId)->firstOrFail());
-        if ($account->user_id) {
+        // Die Registrierung legt kein App-Konto an (unbestätigte Adresse).
+        $this->assertNull($account->user_id);
+
+        return $account;
+    }
+
+    /** Nach der Freigabe: das dabei angelegte App-Konto aufräumen. */
+    private function freshAccount(CommerceShopAccount $account): CommerceShopAccount
+    {
+        $account = $this->onAdmin(fn () => $account->fresh());
+        if ($account->user_id && ! in_array($account->user_id, $this->createdUserIds, true)) {
             $this->createdUserIds[] = $account->user_id;
         }
 
@@ -70,9 +80,12 @@ class CommerceAdminFlowsTest extends TestCase
         $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.approve', $account), ['mode' => 'new', 'name' => 'Segelschule Test', 'slug' => $slug])
             ->assertRedirect()->assertSessionHas('status');
 
-        $account = $this->onAdmin(fn () => $account->fresh());
+        $account = $this->freshAccount($account);
         $tenant = $this->onAdmin(fn () => Tenant::where('slug', $slug)->firstOrFail());
         $this->createdTenantIds[] = $tenant->id;
+        // Das App-Konto entsteht erst jetzt, aus den Angaben des Shopkontos.
+        $user = $this->onAdmin(fn () => User::find($account->user_id));
+        $this->assertSame([$account->email, 'invited', 'Kim Meer', 'Kim', 'Meer'], [$user->email, $user->status, $user->display_name, $user->first_name, $user->last_name]);
         $this->assertSame('linked', $account->status);
         $this->assertSame($tenant->id, $account->tenant_id);
         $this->assertSame('owner', $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $account->user_id)->value('role')));
@@ -89,6 +102,8 @@ class CommerceAdminFlowsTest extends TestCase
         $tenant = $this->createTestTenant();
         $account = $this->register('802', 'zweit-'.Str::lower(Str::random(6)).'@example.test');
         $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.approve', $account), ['mode' => 'existing', 'tenant_id' => $tenant->id])->assertRedirect();
+        $account = $this->freshAccount($account);
+        $this->assertNotNull($account->user_id);
         $this->assertSame('admin', $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $account->user_id)->value('role')));
 
         // Bereits geprüft: kein zweites Freigeben.
@@ -97,6 +112,7 @@ class CommerceAdminFlowsTest extends TestCase
         $other = $this->register('803', 'dritt-'.Str::lower(Str::random(6)).'@example.test');
         $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.reject', $other), ['note' => 'keine Bootsschule'])->assertRedirect();
         $this->assertSame('rejected', $this->onAdmin(fn () => $other->fresh()->status));
+        $this->assertFalse($this->onAdmin(fn () => User::where('email', $other->email)->exists()), 'Ablehnung hinterlässt kein App-Konto');
         // Abgelehnt: auch ein Verknüpfungscode hilft nicht.
         $admin = $this->createTenantUser($tenant, 'admin');
         $this->actingAsInTenant($admin, $tenant)->post('/admin/shop-link-code');
@@ -167,22 +183,49 @@ class CommerceAdminFlowsTest extends TestCase
         $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.approve', $byEmail), ['mode' => 'existing', 'tenant_id' => $tenant->id])->assertStatus(409);
         $this->assertSame('learner', $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $learner->id)->value('role')));
 
-        // Neu registrierte Person, die die Schule inzwischen als Lernende eingetragen hat:
-        // keine stille Hochstufung zur Admin.
+        // Neu registrierte Adresse, die inzwischen ein App-Konto hat (selbst registriert
+        // oder von der Schule als Lernende eingetragen): keine Freigabe über die
+        // E-Mail, sondern Warten auf den Verknüpfungscode -- und keine Hochstufung.
         $account = $this->register('812', 'neu-'.Str::lower(Str::random(6)).'@example.test');
-        $this->onAdmin(fn () => TenantUser::create(['tenant_id' => $tenant->id, 'user_id' => $account->user_id, 'role' => 'learner', 'status' => 'active']));
+        $meanwhile = $this->createTenantUser($tenant, 'learner', ['email' => $account->email]);
         $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.approve', $account), ['mode' => 'existing', 'tenant_id' => $tenant->id])
-            ->assertSessionHasErrors('tenant_id');
-        $this->assertSame('learner', $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $account->user_id)->value('role')));
-        $this->assertSame('pending_review', $this->onAdmin(fn () => $account->fresh()->status));
+            ->assertRedirect()->assertSessionHasErrors('mode');
+        $this->assertSame('learner', $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $meanwhile->id)->value('role')));
+        $account = $this->onAdmin(fn () => $account->fresh());
+        $this->assertSame(['awaiting_link', null, null], [$account->status, $account->user_id, $account->tenant_id]);
+        // Verknüpfen kann sie es dann nur per Code (hier: ein Admin der Schule).
+        $schoolAdmin = $this->createTenantUser($tenant, 'admin');
+        $this->actingAsInTenant($schoolAdmin, $tenant)->post('/admin/shop-link-code');
+        $uri = '/api/commerce/v1/accounts/812/link';
+        $body = json_encode(['link_code' => session('shopLinkCode')]);
+        $this->call('POST', $uri, [], [], [], $this->transformHeadersToServerVars(Signature::headers('shop', 'test-secret-123', 'POST', $uri, $body)
+            + ['Content-Type' => 'application/json', 'Accept' => 'application/json']), $body)->assertOk()->assertJsonPath('data.status', 'linked');
 
-        // Ablehnen entfernt das nie benutzte, bei der Registrierung angelegte App-Konto
-        // (die Adresse ist danach wieder frei) -- hier nicht, weil die Person schon
-        // Lernende der Schule ist.
-        $unused = $this->register('813', 'frei-'.Str::lower(Str::random(6)).'@example.test');
+        // Ältere Registrierung, die noch ein App-Konto mitbrachte und deren Person die
+        // Schule inzwischen als Lernende eingetragen hat: keine stille Hochstufung zur Admin.
+        $legacyUser = $this->onAdmin(fn () => User::create(['display_name' => 'Alt Konto', 'email' => 'alt-'.Str::lower(Str::random(6)).'@example.test',
+            'password' => bcrypt(Str::random(20)), 'status' => 'invited']));
+        $this->createdUserIds[] = $legacyUser->id;
+        $legacy = $this->onAdmin(fn () => CommerceShopAccount::create(['shop_id' => $this->shopId, 'shop_customer_id' => '814', 'user_id' => $legacyUser->id,
+            'status' => 'pending_review', 'email' => $legacyUser->email]));
+        $this->onAdmin(fn () => TenantUser::create(['tenant_id' => $tenant->id, 'user_id' => $legacyUser->id, 'role' => 'learner', 'status' => 'active']));
+        $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.approve', $legacy), ['mode' => 'existing', 'tenant_id' => $tenant->id])
+            ->assertSessionHasErrors('tenant_id');
+        $this->assertSame('learner', $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $legacyUser->id)->value('role')));
+        $this->assertSame('pending_review', $this->onAdmin(fn () => $legacy->fresh()->status));
+
+        // Ablehnen entfernt das nie benutzte App-Konto einer älteren Registrierung
+        // (die Adresse ist danach wieder frei) -- beim Konto oben nicht, weil die
+        // Person schon Lernende der Schule ist.
+        $unusedUser = $this->onAdmin(fn () => User::create(['display_name' => 'Frei', 'email' => 'frei-'.Str::lower(Str::random(6)).'@example.test',
+            'password' => bcrypt(Str::random(20)), 'status' => 'invited']));
+        $this->createdUserIds[] = $unusedUser->id;
+        $unused = $this->onAdmin(fn () => CommerceShopAccount::create(['shop_id' => $this->shopId, 'shop_customer_id' => '813', 'user_id' => $unusedUser->id,
+            'status' => 'pending_review', 'email' => $unusedUser->email]));
         $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.reject', $unused))->assertRedirect();
-        $this->assertNull($this->onAdmin(fn () => User::find($unused->user_id)), 'unbenutztes App-Konto entfernt');
+        $this->assertNull($this->onAdmin(fn () => User::find($unusedUser->id)), 'unbenutztes App-Konto entfernt');
         $this->assertNull($this->onAdmin(fn () => $unused->fresh()->user_id));
+        $account = $legacy;
 
         // Bereits abgelehnt: nicht noch einmal ablehnen/freigeben.
         $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.reject', $account))->assertRedirect();

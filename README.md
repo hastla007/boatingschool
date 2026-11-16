@@ -14,7 +14,7 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   Pfad (`CENTRAL_DOMAIN/{slug}`, Standard, `ResolveTenantPath`), Subdomain
   (`{slug}.CENTRAL_DOMAIN`, optional mit `TENANT_URL_MODE=subdomain`) oder
   Custom Domain (`app/Http/Middleware/ResolveTenant.php`). Mandantengebundene Tabellen
-  (inzwischen 36, u. a. `tenant_branding`, `tenant_user`,
+  (inzwischen 41, u. a. `tenant_branding`, `tenant_user`,
   `entitlement`, `attempt`, `progress`, `favorite`, `exam_session`,
   `exam_session_question`, `coupon`, `audit_log`, `app_user`) sind
   zusätzlich per **Postgres Row-Level-Security** abgesichert – ein
@@ -221,8 +221,13 @@ ohne ihn laufen die folgenden Kommandos nie, auch nicht im Dev-Setup mit
 `php artisan serve`:
 
 ```cron
-* * * * * cd /pfad/zur/app && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /pfad/zur/app && php artisan schedule:run >> storage/logs/scheduler.log 2>&1
 ```
+
+In Produktion zusätzlich Pflicht: ein externer Totmann-Schalter
+(`OPS_HEARTBEAT_URL`, z. B. healthchecks.io), den der Scheduler jede Minute
+anpingt -- steht Cron oder der Server, alarmiert der Dienst von außen
+(siehe `deploy/README.md` §5).
 
 Geplante Kommandos:
 
@@ -244,24 +249,34 @@ Geplante Kommandos:
   E-Mail an Lernende, deren Kurszugang in den nächsten Tagen abläuft
   (einmal je Ablaufdatum; scheitert der Versand, wird es beim nächsten
   Lauf erneut versucht).
-- `app:backup` (täglich 03:15 Europe/Berlin) -- Datenbank-Dump und Uploads
-  nach `storage/app/backups/`, optional auf externen Speicher
-  (`BACKUP_DISK`), siehe `deploy/README.md`.
+- `app:backup` (täglich 03:15 Europe/Berlin) -- Datenbank-Dump, Uploads
+  und geschützte Dateien (Fragenbilder, Kartenausschnitte, Kursdateien,
+  Tipp-PDFs, Videoschritt-Bilder) nach `storage/app/backups/`, optional verschlüsselt auf externen
+  Speicher (`BACKUP_DISK`, `BACKUP_ENCRYPTION_PUBLIC_KEY`), siehe
+  `deploy/README.md`.
 - `ops:scheduler-heartbeat` (jede Minute) -- Lebenszeichen für den
-  Go-live-Check.
+  Go-live-Check und Ping an `OPS_HEARTBEAT_URL`.
 - `app:commerce-outbox` (jede Minute) -- sendet vorgemerkte Ereignisse an
   den WooCommerce-Shop (Anlage des Shopkontos neuer Schulen), siehe
   `docs/commerce/README.md`. Ohne `COMMERCE_SHOP_URL` ohne Wirkung.
 
 `QUEUE_CONNECTION` steht in `.env`/`.env.example` auf `database` (Tabellen
-`jobs`/`failed_jobs`/`job_batches`). Massen-Mails (Mitteilungen der Schule
-und der Plattform, Lern-Erinnerungen an mehr als 10 Personen,
-Sammel-Einladungen) laufen als Queue-Jobs in Paketen zu 50 Empfängern mit
-Schulkontext (`App\Jobs\Concerns\TenantAware`, 3 Versuche). Einzelmails
-(Passwort-Set-Link, Einladung, E-Mail-Bestätigung) bleiben synchron über
-`App\Support\BestEffortMail`. Ein Worker-Prozess (`php artisan queue:work`,
-Vorlage `deploy/supervisor-worker.conf`) muss daher dauerhaft laufen --
-`app:check-production` meldet `sync`, hängende und aufgegebene Jobs.
+`jobs`/`failed_jobs`/`job_batches`). Ein dauerhaft laufender Worker
+(`php artisan queue:work`, Vorlage `deploy/supervisor-worker.conf`) ist
+Pflicht: Massen-Mails gehen je Empfänger als Job über die Queue --
+Mitteilungen der Schule und der Plattform, Sammel-Einladung, Sammel-
+Verlängerung und Freischaltungen durch die Schule, Erinnerungen an mehr als
+zehn Lernende und Lerngruppen-Einladungen (Notifications mit `ShouldQueue`,
+`afterCommit`). Die Schule reist nur als ID mit; die Job-Middleware
+`App\Jobs\Middleware\WithSchoolContext` setzt im Worker den
+Mandantenkontext (RLS, Absendername, Unterschrift, Antwortadresse).
+Einladungen mit Passwort-Link und Beitrittscodes werden verschlüsselt
+eingereiht. Einzelne Konto- und Sicherheitsmails (Passwort-Link, E-Mail-
+Bestätigung, Einzel-Einladung, selbst eingelöster Code) laufen weiter
+bewusst synchron im Request über `App\Support\BestEffortMail`
+(Bug-Review B31: ein SMTP-Fehler wird geloggt und gemeldet, bricht den
+Request aber nicht ab). `app:check-production` prüft das Lebenszeichen des
+Workers und meldet fällige Jobs, die länger als 10 Minuten warten.
 
 ### Produktivbetrieb
 
@@ -314,7 +329,9 @@ Implementierungsplans hinaus gewachsen): zentraler Content mit
 Revisionshistorie, Excel-Import, Tenant/Branding/Rollen mit RLS,
 Kurse/Entitlements, vollständige Learning Loop, Smarttrainer,
 Lernenden-Dashboard, Bootsschul-Admin (Teilnehmer, manuelle Freischaltung,
-Branding), Prüfungssimulation (inkl. fester, amtlicher Prüfungsbögen für
+Branding, Lerngruppen: Gruppenlizenzen anlegen, bearbeiten, beenden und
+Mitglieder verwalten -- nur Inhaber/Admins, protokolliert; jeder Beitritt
+verbraucht je Kurs einen freien Kurscode aus dem Codebestand der Schule; wer für einen Kurs schon einen eigenen Vollzugang hat, verbraucht dafür keinen), Prüfungssimulation (inkl. fester, amtlicher Prüfungsbögen für
 mehrere Kurse), Videokurs, Navigationsaufgaben-Trainer,
 Coupon-/Zugangscode-System (inkl. Bundle-Optionen, Export, Audit-Log),
 Praxisformular-Anmeldung samt Prüfungsterminen, Willkommensbox-Bestellung

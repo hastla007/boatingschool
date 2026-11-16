@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Commerce;
 
+use App\Commerce\ShopOrders;
 use App\Commerce\Signature;
 use App\Models\CommerceEvent;
 use App\Models\CommerceLinkCode;
@@ -13,9 +14,11 @@ use App\Models\Tenant;
 use App\Models\TenantCourseDisabled;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Symfony\Component\Process\Process;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -104,14 +107,18 @@ class CommerceApiTest extends TestCase
         $this->signed('GET', '/catalog')->assertStatus(401);
     }
 
-    public function test_registration_creates_a_pending_app_account_but_never_links_by_email(): void
+    public function test_registration_creates_no_app_account_and_never_links_by_email(): void
     {
         $email = 'neu-'.Str::lower(Str::random(6)).'@example.test';
         $this->signed('POST', '/accounts', ['shop_customer_id' => '501', 'email' => strtoupper($email), 'first_name' => 'Anna', 'last_name' => 'Kai', 'company_name' => 'Segelschule Nord', 'billing_country' => 'de'])
             ->assertCreated()->assertJsonPath('data.status', 'pending_review')->assertJsonPath('data.can_purchase', false)->assertJsonPath('data.tenant', null);
-        $user = $this->onAdmin(fn () => User::where('email', $email)->firstOrFail());
-        $this->createdUserIds[] = $user->id;
-        $this->assertSame('invited', $user->status);
+        // Unbestätigte Adresse aus dem Shop: nur das Shopkonto, kein App-Konto
+        // (das entsteht erst bei der Freigabe durch den Superadmin).
+        $this->assertFalse($this->onAdmin(fn () => User::whereRaw('lower(email) = ?', [$email])->exists()));
+        $account = $this->onAdmin(fn () => CommerceShopAccount::where('shop_id', $this->shopId)->where('shop_customer_id', '501')->firstOrFail());
+        $this->assertNull($account->user_id);
+        $this->assertSame('pending_review', $account->status);
+        $this->assertSame([$email, 'Anna Kai', 'DE'], [$account->email, $account->contact_name, $account->billing_country]);
         // Wiederholung: dasselbe Konto.
         $this->signed('POST', '/accounts', ['shop_customer_id' => '501', 'email' => $email])->assertOk();
         $this->assertSame(1, $this->onAdmin(fn () => CommerceShopAccount::where('shop_id', $this->shopId)->count()));
@@ -126,9 +133,9 @@ class CommerceApiTest extends TestCase
         // Auch die neue Registrierung meldet keine App-Konto-ID, solange nicht verknüpft.
         $this->signed('GET', '/accounts/501')->assertOk()->assertJsonPath('data.app_user_id', null);
 
-        // Stammdaten aus dem Shop ändern das App-Konto nicht.
+        // Stammdaten aus dem Shop ändern nur das Shopkonto.
         $this->signed('PATCH', '/accounts/501', ['email' => 'andere@example.test', 'company_name' => 'Segelschule Süd'])->assertOk();
-        $this->assertSame($email, $this->onAdmin(fn () => User::find($user->id)->email));
+        $this->assertFalse($this->onAdmin(fn () => User::whereIn('email', [$email, 'andere@example.test'])->exists()));
         $this->assertSame('Segelschule Süd', $this->onAdmin(fn () => CommerceShopAccount::where('shop_id', $this->shopId)->where('shop_customer_id', '501')->value('company_name')));
     }
 
@@ -215,7 +222,6 @@ class CommerceApiTest extends TestCase
     public function test_unlinked_or_unapproved_accounts_cannot_order(): void
     {
         $this->signed('POST', '/accounts', ['shop_customer_id' => '701', 'email' => 'p-'.Str::random(6).'@example.test'])->assertCreated();
-        $this->createdUserIds[] = $this->onAdmin(fn () => CommerceShopAccount::where('shop_id', $this->shopId)->value('user_id'));
         $this->signed('POST', '/orders/lines', ['shop_customer_id' => '701', 'order_id' => '1', 'order_line_id' => '1', 'kind' => 'course', 'course_code' => 'SRC', 'quantity' => 1])
             ->assertStatus(403)->assertJsonPath('code', 'ACCOUNT_NOT_LINKED');
         $this->signed('POST', '/orders/lines', ['shop_customer_id' => 'unbekannt', 'order_id' => '1', 'order_line_id' => '1', 'kind' => 'course', 'course_code' => 'SRC', 'quantity' => 1])
@@ -291,6 +297,116 @@ class CommerceApiTest extends TestCase
         $this->signed('GET', '/orders/9500/lines/2')->assertNotFound();
         // Wiederholung der schon gelieferten Position zählt nicht noch einmal.
         $this->signed('POST', '/orders/lines', ['order_line_id' => '1'] + $line)->assertOk();
+    }
+
+    /**
+     * SEC-A2: zwei Lieferungen derselben Schule gleichzeitig. A (eigener Prozess,
+     * echte Liefer-Logik) hat 500 Codes angelegt, aber noch nicht committet;
+     * B (500) muss warten und danach am Tageskontingent (800) scheitern --
+     * ohne Sperre je Schule sähe B nur committete Batches und lieferte auch.
+     */
+    public function test_parallel_deliveries_cannot_bypass_the_daily_quota(): void
+    {
+        Mail::fake();
+        config(['commerce.daily_code_limit' => 800]);
+        [$tenant, , $customerId] = $this->linkedAccount();
+        $accountId = $this->onAdmin(fn () => CommerceShopAccount::where('shop_id', $this->shopId)->where('shop_customer_id', $customerId)->value('id'));
+
+        $script = <<<'PHP'
+            [$base, $shop, $accountId] = array_slice($argv, 1);
+            require $base.'/vendor/autoload.php';
+            $app = require $base.'/bootstrap/app.php';
+            $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+            config(['database.default' => 'pgsql_admin', 'commerce.daily_code_limit' => 800, 'mail.default' => 'array']);
+            $account = App\Models\CommerceShopAccount::findOrFail($accountId);
+            Illuminate\Support\Facades\DB::transaction(function () use ($shop, $account) {
+                app(App\Commerce\ShopOrders::class)->deliver($shop, $account, ['order_id' => '9600', 'order_line_id' => 'a', 'kind' => 'course', 'course_code' => 'SRC', 'quantity' => 500]);
+                echo "geliefert\n";
+                usleep(2_000_000); // noch nicht committet
+            });
+            echo "committet\n";
+            PHP;
+        $a = new Process([PHP_BINARY, '-r', $script, '--', base_path(), $this->shopId, $accountId], base_path(), null, null, 60);
+        $a->start();
+        $deadline = microtime(true) + 30;
+        while (! str_contains($a->getOutput(), 'geliefert') && $a->isRunning() && microtime(true) < $deadline) {
+            usleep(50_000);
+        }
+        $this->assertStringContainsString('geliefert', $a->getOutput(), 'Lieferung A läuft: '.$a->getErrorOutput());
+
+        $started = microtime(true);
+        $this->signed('POST', '/orders/lines', ['shop_customer_id' => $customerId, 'order_id' => '9600', 'order_line_id' => 'b', 'kind' => 'course', 'course_code' => 'SRC', 'quantity' => 500])
+            ->assertStatus(429)->assertJsonPath('code', 'CODE_QUOTA_EXCEEDED');
+        $this->assertGreaterThan(0.5, microtime(true) - $started, 'B hat auf die Sperre der Schule gewartet');
+
+        $a->wait();
+        $this->assertTrue($a->isSuccessful(), $a->getErrorOutput());
+        $this->assertStringContainsString('committet', $a->getOutput());
+        $this->assertSame(500, (int) $this->onAdmin(fn () => CouponBatch::withoutGlobalScopes()->where('tenant_id', $tenant->id)->sum('quantity')));
+    }
+
+    /** SEC-A2: die Sperre je Schule gilt bis zum Ende der Liefer-Transaktion. */
+    public function test_delivery_holds_the_school_quota_lock_until_commit(): void
+    {
+        [$tenant, , $customerId] = $this->linkedAccount();
+        $account = $this->onAdmin(fn () => CommerceShopAccount::where('shop_id', $this->shopId)->where('shop_customer_id', $customerId)->firstOrFail());
+        $key = 'commerce-quota:'.$tenant->id;
+        $held = $this->onAdmin(fn () => DB::transaction(function () use ($account, $key) {
+            app(ShopOrders::class)->deliver($this->shopId, $account, ['order_id' => '9700', 'order_line_id' => '1', 'kind' => 'course', 'course_code' => 'SRC', 'quantity' => 1]);
+
+            return DB::selectOne("select count(*) as n from pg_locks where locktype = 'advisory' and pid = pg_backend_pid() and granted
+                and objid = (hashtext(?)::bigint & 4294967295)::oid", [$key])->n;
+        }));
+        $this->assertSame(1, (int) $held);
+    }
+
+    /**
+     * SEC-P1: Konto-/Statusabfragen (die Shopkunden auslösen können) und
+     * Lieferungen haben getrennte Töpfe, Konto-Endpunkte zusätzlich je Kunde.
+     */
+    public function test_account_status_calls_cannot_exhaust_the_delivery_budget(): void
+    {
+        [, , $customerId] = $this->linkedAccount(); // Registrierung + Verknüpfung: 2 Anfragen dieses Kunden
+        config(['commerce.rate_limits.per_customer' => 3, 'commerce.rate_limits.accounts' => 8]);
+
+        // Ein Kunde lädt seinen Status immer wieder frisch: nach 3/Min. ist Schluss.
+        $statuses = collect(range(1, 5))->map(fn () => $this->signed('GET', "/accounts/{$customerId}")->status())->all();
+        $this->assertSame([200, 429, 429, 429, 429], $statuses);
+        $this->signed('GET', "/accounts/{$customerId}")->assertStatus(429)->assertJsonPath('code', 'RATE_LIMITED');
+
+        // Andere Kunden leeren den gemeinsamen Konto-Topf (8/Min.; die gedrosselten
+        // Abrufe oben zählen dort nicht mit) ...
+        foreach (range(1, 5) as $i) {
+            $this->signed('POST', '/accounts', ['shop_customer_id' => 'p1-'.$i, 'email' => 'p1-'.$i.'-'.Str::random(6).'@example.test'])->assertCreated();
+        }
+        $this->signed('POST', '/accounts', ['shop_customer_id' => 'p1-9', 'email' => 'p1-9-'.Str::random(6).'@example.test'])->assertStatus(429);
+        $this->signed('GET', '/catalog')->assertStatus(429);
+
+        // ... Lieferung, Status und Sperre gehen trotzdem durch.
+        $batchId = $this->signed('POST', '/orders/lines', ['shop_customer_id' => $customerId, 'order_id' => '9800', 'order_line_id' => '1', 'kind' => 'course', 'course_code' => 'SRC', 'quantity' => 1])
+            ->assertCreated()->json('data.batch_id');
+        $this->signed('GET', '/orders/9800/lines/1')->assertOk();
+        $this->signed('GET', "/batches/{$batchId}")->assertOk();
+        $this->signed('POST', "/batches/{$batchId}/void", ['reason' => 'Storno'], ['Idempotency-Key' => 'cancel-9800-1'])->assertOk();
+    }
+
+    /** SEC-P2: eine Shop-Registrierung blockiert die spätere Selbstregistrierung in der App nicht. */
+    public function test_shop_registration_does_not_block_self_registration_in_the_app(): void
+    {
+        $email = 'selbst-'.Str::lower(Str::random(6)).'@example.test';
+        $this->signed('POST', '/accounts', ['shop_customer_id' => '7701', 'email' => $email, 'first_name' => 'Fremd', 'last_name' => 'Angabe'])->assertCreated();
+
+        $tenant = $this->createTestTenant();
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+            'name' => 'Echte Person', 'email' => $email, 'password' => 'password1234', 'password_confirmation' => 'password1234',
+            ...$this->registrationFormFields(),
+        ])->assertRedirect();
+        $user = $this->onAdmin(fn () => User::where('email', $email)->first());
+        $this->assertNotNull($user, 'Selbstregistrierung angelegt');
+        $this->createdUserIds[] = $user->id;
+        $this->assertSame('Echte Person', $user->display_name);
+        // Das Shopkonto bleibt unverknüpft.
+        $this->assertNull($this->onAdmin(fn () => CommerceShopAccount::where('shop_id', $this->shopId)->where('shop_customer_id', '7701')->value('user_id')));
     }
 
     public function test_refund_voids_only_unused_codes_and_is_idempotent(): void

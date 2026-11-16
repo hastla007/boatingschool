@@ -86,7 +86,12 @@ class EntitlementController extends Controller
             // Review: gibt es (aus Altbeständen) mehrere Zeilen, zählt die
             // aktive bzw. die mit dem spätesten Enddatum -- nicht eine
             // zufällige abgelaufene, für die sonst ein Code verbraucht würde.
+            // QA-L-1: nur volle, eigene Zugänge zählen bzw. werden reaktiviert --
+            // ein aktiver Teilzugang (capabilities) meldete sonst "freigeschaltet"
+            // ohne Wirkung; Gruppenzugänge gehören zur Lerngruppe. Sonst
+            // entsteht unten eine neue Vollzeile.
             $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
+                ->ownFullAccess()
                 ->orderByRaw("status = 'active' desc")->orderByRaw('valid_until desc nulls first')->first();
 
             // Bug-Review (AA14: Abgelaufener Zugang nicht sofort neu
@@ -102,9 +107,11 @@ class EntitlementController extends Controller
             // sofort "Kurs freigeschaltet" zurück, ohne dass Laufzeit oder
             // Coupon tatsächlich angefasst wurden -- der Lerner blieb bis
             // zum nächsten Scheduler-Lauf gesperrt.
-            $isCurrentlyActive = $entitlement
-                && $entitlement->status === 'active'
-                && ($entitlement->valid_until === null || $entitlement->valid_until->isFuture());
+            // Voller Zugang auch über eine Lerngruppe: kein Code nötig.
+            $isCurrentlyActive = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
+                ->whereNull('capabilities')->where('status', 'active')
+                ->where(fn ($q) => $q->whereNull('valid_until')->orWhere('valid_until', '>', now()))
+                ->exists();
 
             if ($isCurrentlyActive) {
                 return back()->with('status', 'Kurs freigeschaltet.');
@@ -172,7 +179,8 @@ class EntitlementController extends Controller
             };
 
             $attributes = [
-                'valid_from' => now(),
+                // QA-L-5: ein früherer Zugangsbeginn bleibt (Drip beginnt nicht neu).
+                'valid_from' => $entitlement?->valid_from !== null && $entitlement->valid_from->lte(now()) ? $entitlement->valid_from : now(),
                 'valid_until' => $validUntil,
                 'status' => 'active',
                 'source_type' => 'coupon',

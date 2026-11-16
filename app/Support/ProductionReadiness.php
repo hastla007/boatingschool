@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Console\Commands\BackupApplication;
-use App\Jobs\MassMailJob;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\VideoLesson;
@@ -26,6 +25,25 @@ class ProductionReadiness
 
     /** Ab so vielen Schulen empfiehlt der Check Redis statt der Datenbank für Cache/Sessions/Queue. */
     public const REDIS_RECOMMENDED_FROM_SCHOOLS = 20;
+
+    /** Lebenszeichen des Queue-Workers (Event Looping, siehe AppServiceProvider). */
+    public const WORKER_HEARTBEAT_KEY = 'ops:queue-worker-heartbeat';
+
+    /** Länger darf ein fälliger Job nicht warten, sonst fehlt Worker-Kapazität. */
+    public const MAX_JOB_WAIT_SECONDS = 600;
+
+    private static int $lastWorkerBeat = 0;
+
+    /** Vom Worker bei jedem Schleifendurchlauf aufgerufen, schreibt höchstens alle 30 s. */
+    public static function recordWorkerHeartbeat(): void
+    {
+        $now = now()->timestamp;
+        if ($now - self::$lastWorkerBeat < 30 && rescue(fn () => Cache::has(self::WORKER_HEARTBEAT_KEY), false, false)) {
+            return;
+        }
+        self::$lastWorkerBeat = $now;
+        rescue(fn () => Cache::forever(self::WORKER_HEARTBEAT_KEY, $now), report: false);
+    }
 
     /** @return list<array{group: string, label: string, status: string, detail: string}> */
     public static function checks(): array
@@ -58,7 +76,27 @@ class ProductionReadiness
         $add('Konfiguration', 'APP_URL mit https', str_starts_with($url, 'https://') ? 'ok' : 'fail', $url);
         $central = (string) config('app.central_domain');
         $add('Konfiguration', 'CENTRAL_DOMAIN gesetzt', in_array($central, ['', 'localhost', '127.0.0.1'], true) ? 'fail' : 'ok', $central);
-        $add('Konfiguration', 'Sichere Session-Cookies (SESSION_SECURE_COOKIE=true)', config('session.secure') ? 'ok' : 'warn');
+        // Über https ohne Secure-Flag ginge das Session-Cookie auch über unverschlüsseltes http mit.
+        $add('Konfiguration', 'Sichere Session-Cookies (SESSION_SECURE_COOKIE=true)', config('session.secure') ? 'ok' : (str_starts_with($url, 'https://') ? 'fail' : 'warn'));
+        // „*“ vertraut jedem Absender: X-Forwarded-For (IP-Limits, Protokolle) wäre frei fälschbar.
+        $proxies = trim((string) config('app.trusted_proxies'));
+        $add('Konfiguration', 'TRUSTED_PROXIES ohne „*“', in_array($proxies, ['*', '**'], true) ? 'warn' : 'ok', in_array($proxies, ['*', '**'], true) ? 'nur die Adressen des eigenen Proxys/Load-Balancers eintragen' : ($proxies === '' ? 'keinem Proxy vertraut' : $proxies));
+        // Nur für app:create-superadmin beim ersten Einrichten gedacht, danach aus der .env entfernen.
+        $add('Konfiguration', 'SUPERADMIN_PASSWORD nicht in der .env', config('app.superadmin_password') ? 'warn' : 'ok', config('app.superadmin_password') ? 'nach dem Anlegen des Superadmins entfernen' : '');
+        $envFile = app()->environmentFilePath();
+        if (is_file($envFile)) {
+            $othersCanRead = (fileperms($envFile) & 0o007) !== 0;
+            $add('Konfiguration', '.env nur für den Deploy-Benutzer lesbar', $othersCanRead ? 'warn' : 'ok', $othersCanRead ? 'chmod 600 .env (enthält APP_KEY und Zugangsdaten)' : '');
+        }
+        // Pfad-Modus: alle Schulen und der Superadmin teilen sich einen Ursprung (SEC-W-4).
+        $superadminHost = (string) config('app.superadmin_host');
+        if ($superadminHost === '' && config('app.tenant_url_mode') !== 'subdomain') {
+            $add('Konfiguration', 'Superadmin getrennt von den Schulen (SUPERADMIN_HOST)', 'warn', 'im Pfad-Modus teilen Schulen und Superadmin einen Ursprung: SUPERADMIN_HOST setzen oder TENANT_URL_MODE=subdomain');
+        } elseif ($superadminHost !== '' && config('session.domain')) {
+            $add('Konfiguration', 'Superadmin getrennt von den Schulen (SUPERADMIN_HOST)', 'warn', 'SESSION_DOMAIN teilt das Session-Cookie über Hosts hinweg: leer lassen');
+        } else {
+            $add('Konfiguration', 'Superadmin getrennt von den Schulen (SUPERADMIN_HOST)', 'ok', $superadminHost ?: 'Subdomain-Modus');
+        }
         $add('Konfiguration', 'Cache nicht „array“', config('cache.default') === 'array' ? 'fail' : 'ok', (string) config('cache.default'));
         $add('Konfiguration', 'LOG_LEVEL nicht „debug“', config('logging.channels.'.config('logging.default').'.level') === 'debug' || config('logging.channels.daily.level') === 'debug' ? 'warn' : 'ok');
         $add('Konfiguration', 'Fehlertracking (SENTRY_LARAVEL_DSN)', config('sentry.dsn') ? 'ok' : 'warn', config('sentry.dsn') ? '' : 'ohne DSN werden Fehler nur ins Log geschrieben');
@@ -79,29 +117,41 @@ class ProductionReadiness
         // --- Hintergrunddienste --------------------------------------------
         $last = Cache::get(self::SCHEDULER_HEARTBEAT_KEY);
         $add('Hintergrunddienste', 'Scheduler (Cron: schedule:run jede Minute)', $last && now()->timestamp - $last < 300 ? 'ok' : 'fail', $last ? 'zuletzt '.self::ago($last) : 'noch nie gelaufen');
-        // Sammel-Mails (Mitteilungen, Erinnerungen, Sammel-Einladungen) laufen
-        // als Queue-Jobs: ohne laufenden Worker (queue:work, siehe
-        // deploy/supervisor-worker.conf) bleiben sie liegen.
-        $queue = (string) config('queue.default');
-        if ($queue === 'sync') {
-            $add('Hintergrunddienste', 'Queue-Worker (QUEUE_CONNECTION nicht „sync“)', 'warn', 'Sammel-Mails laufen sonst im Request (Zeitüberschreitung bei vielen Empfängern)');
+        // Steht der Scheduler (oder der Server), läuft auch dieser Check nicht mehr: nur ein externer Dienst merkt das.
+        $add('Hintergrunddienste', 'Externer Totmann-Schalter (OPS_HEARTBEAT_URL)', config('app.ops_heartbeat_url') ? 'ok' : 'warn', config('app.ops_heartbeat_url') ? '' : 'ohne externen Heartbeat-Dienst fällt ein stehender Scheduler niemandem auf');
+        $safely(function () use ($add) {
+            $to = OpsAlert::recipient();
+            $add('Hintergrunddienste', 'Empfänger für Betriebsalarme', $to ? 'ok' : 'fail', $to ?: 'OPS_ALERT_EMAIL oder Support-Adresse (Superadmin → Einstellungen) setzen');
+        });
+        // Audit ARC-2: Massen-Mails (Mitteilungen, Sammel-Einladung und
+        // -Verlängerung, Lern-Erinnerungen, Lerngruppen) laufen über die
+        // Queue -- ohne laufenden Worker (queue:work) gehen sie nie raus.
+        if (config('queue.default') === 'sync') {
+            $add('Hintergrunddienste', 'Queue-Worker (QUEUE_CONNECTION nicht „sync“)', 'warn', 'Massen-Mails laufen sonst im Request (Zeitüberschreitung bei vielen Empfängern)');
+        } else {
+            $beat = Cache::get(self::WORKER_HEARTBEAT_KEY);
+            $add('Hintergrunddienste', 'Queue-Worker (queue:work)', $beat && now()->timestamp - $beat < 300 ? 'ok' : 'fail',
+                $beat ? 'zuletzt '.self::ago($beat) : 'noch nie gelaufen (Vorlage deploy/supervisor-worker.conf)');
         }
-        if ($queue === 'database') {
+        if (config('queue.default') === 'database') {
             $safely(function () use ($add) {
-                $oldest = DB::connection('pgsql_admin')->table(config('queue.connections.database.table', 'jobs'))->min('created_at');
-                $stuck = $oldest && now()->timestamp - (int) $oldest > 900;
-                $add('Hintergrunddienste', 'Queue (keine hängenden Jobs)', $stuck ? 'fail' : 'ok', $stuck ? 'Jobs warten seit über 15 Minuten: Worker (queue:work) läuft nicht' : '');
+                // Älteste fällige, noch nicht gestartete Job-Wartezeit.
+                $oldest = DB::connection('pgsql_admin')->table(config('queue.connections.database.table', 'jobs'))
+                    ->whereNull('reserved_at')->where('available_at', '<=', now()->timestamp)->min('available_at');
+                $wait = $oldest ? now()->timestamp - (int) $oldest : 0;
+                $stuck = $wait > self::MAX_JOB_WAIT_SECONDS;
+                $add('Hintergrunddienste', 'Queue (keine hängenden Jobs)', $stuck ? 'fail' : 'ok',
+                    $stuck ? 'ältester Job wartet seit '.intdiv($wait, 60).' Minuten: Worker (queue:work) läuft nicht oder ist überlastet'
+                        : ($oldest ? 'älteste Wartezeit '.$wait.' s' : ''));
             });
         }
         $safely(function () use ($add) {
             $failed = DB::connection('pgsql_admin')->table(config('queue.failed.table', 'failed_jobs'))->count();
             $add('Hintergrunddienste', 'Fehlgeschlagene Jobs', $failed === 0 ? 'ok' : 'warn', $failed ? "{$failed} Job(s), siehe php artisan queue:failed" : '');
         });
-        $failedMailJobs = (int) Cache::get(MassMailJob::FAILED_COUNTER_KEY, 0);
-        $add('Hintergrunddienste', 'Sammel-Mails ohne endgültigen Fehlschlag', $failedMailJobs === 0 ? 'ok' : 'warn', $failedMailJobs ? "{$failedMailJobs} Paket(e) nach 3 Versuchen aufgegeben, siehe Log und php artisan queue:failed" : '');
         // Ab einigen Schulen trägt die Datenbank Cache, Sessions und Queue
         // spürbar mit: Redis entlastet sie (deploy/README.md, „Redis“).
-        if (config('cache.default') === 'database' && config('session.driver') === 'database' && $queue === 'database') {
+        if (config('cache.default') === 'database' && config('session.driver') === 'database' && config('queue.default') === 'database') {
             $safely(function () use ($add) {
                 $schools = Tenant::on('pgsql_admin')->whereIn('status', ['active', 'trial'])->count();
                 if ($schools > self::REDIS_RECOMMENDED_FROM_SCHOOLS) {
@@ -115,17 +165,15 @@ class ProductionReadiness
         if ($backup && ! config('backup.disk')) {
             $add('Hintergrunddienste', 'Sicherung außerhalb des Servers (BACKUP_DISK)', 'warn', 'fällt der Server aus, sind lokale Sicherungen mit weg');
         }
-        if ($disk = config('backup.disk')) {
-            $missing = BackupApplication::offsiteUnavailableReason($disk);
-            $add('Hintergrunddienste', 'Externer Sicherungsspeicher nutzbar', $missing ? 'fail' : 'ok', (string) $missing);
+        if (config('backup.disk')) {
+            $remote = BackupApplication::latestRemoteBackupAt();
+            $add('Hintergrunddienste', 'Externe Sicherung erfolgreich', $remote && $remote->diffInHours(now()) < $maxAge ? 'ok' : 'fail', $remote ? 'zuletzt '.$remote->format('d.m.Y H:i') : 'noch keine vollständige externe Kopie');
+            $add('Hintergrunddienste', 'Externe Sicherung verschlüsselt (BACKUP_ENCRYPTION_PUBLIC_KEY)', config('backup.encryption_public_key') ? 'ok' : 'warn', config('backup.encryption_public_key') ? '' : 'Kopien liegen sonst lesbar beim Speicheranbieter (php artisan app:backup-keygen)');
         }
-        try {
-            $encryption = BackupEncryption::mode();
-            if (config('backup.disk')) {
-                $add('Hintergrunddienste', 'Sicherung verschlüsselt (BACKUP_ENCRYPT_RECIPIENT)', $encryption ? 'ok' : 'warn', $encryption ? "mit {$encryption}" : 'externe Kopien liegen sonst im Klartext beim Speicheranbieter');
-            }
-        } catch (Throwable $e) {
-            $add('Hintergrunddienste', 'Sicherung verschlüsselt (BACKUP_ENCRYPT_RECIPIENT)', 'fail', $e->getMessage());
+        $free = @disk_free_space(is_dir((string) config('backup.path')) ? (string) config('backup.path') : storage_path());
+        if ($free !== false) {
+            [$status, $detail] = self::freeSpace((int) $free, BackupApplication::latestBackupBytes());
+            $add('Hintergrunddienste', 'Freier Speicher für Sicherungen', $status, $detail);
         }
 
         // --- Datenbank -----------------------------------------------------
@@ -160,12 +208,39 @@ class ProductionReadiness
                 ->pluck('name');
             $add('Inhalte', 'Impressumsangaben aller aktiven Schulen', $incomplete->isEmpty() ? 'ok' : 'warn', $incomplete->isEmpty() ? '' : 'unvollständig: '.$incomplete->take(5)->implode(', ').($incomplete->count() > 5 ? ' …' : ''));
 
+            // Lizenzierte/amtliche Fragenbilder sonst ohne Anmeldung unter /storage/... abrufbar.
+            $exposed = QuestionMedia::protectedFilesOnPublicDisk();
+            $add('Inhalte', 'Geschützte Fragenbilder nicht öffentlich abrufbar', $exposed->isEmpty() ? 'ok' : 'warn', $exposed->isEmpty() ? '' : "{$exposed->count()} Datei(en) noch auf der public-Disk, z. B. {$exposed->first()} (unter gleichem Pfad nach storage/app/private verschieben)");
+            // Tipp-PDFs (lizenziert) und Bilder der Videoschritte (Kursinhalt) ebenso.
+            $more = TipPdf::filesOnPublicDisk()->merge(VideoStepImage::filesOnPublicDisk())->unique()->values();
+            $add('Inhalte', 'Tipp-PDFs und Videoschritt-Bilder nicht öffentlich abrufbar', $more->isEmpty() ? 'ok' : 'warn', $more->isEmpty() ? '' : "{$more->count()} Datei(en) noch auf der public-Disk, z. B. {$more->first()} (unter gleichem Pfad nach storage/app/private verschieben, siehe Migration 000820)");
+            // Kartenausschnitte (Lizenz nur für Kursteilnehmer) ebenso.
+            $charts = NavigationChart::filesOnPublicDisk();
+            $add('Inhalte', 'Kartenausschnitte nicht öffentlich abrufbar', $charts === [] ? 'ok' : 'warn', $charts === [] ? '' : count($charts).' Datei(en) noch unter storage/app/public/'.NavigationChart::DIRECTORY.' (nach storage/app/private/'.NavigationChart::DIRECTORY.' verschieben)');
+
             $footer = @file_get_contents(resource_path('views/components/site-footer.blade.php')) ?: '';
             // Sichtbar auf jeder Seite jeder Schule: vor dem Start zwingend ersetzen.
             $add('Inhalte', 'Footer ohne Platzhalter', str_contains($footer, 'XXX') ? 'fail' : 'ok', str_contains($footer, 'XXX') ? 'Footer enthält noch „XXX“' : '');
         });
 
         return $checks;
+    }
+
+    /**
+     * Freier Speicher reicht für mindestens drei weitere Sicherungen (und 1 GiB)?
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function freeSpace(int $freeBytes, ?int $latestBackupBytes): array
+    {
+        $needed = max(1024 ** 3, 3 * (int) $latestBackupBytes);
+        $gib = fn (int|float $bytes) => number_format($bytes / 1024 ** 3, 1, ',', '.').' GiB';
+
+        if ($latestBackupBytes !== null && $freeBytes < $latestBackupBytes) {
+            return ['fail', "frei {$gib($freeBytes)}, die letzte Sicherung brauchte {$gib($latestBackupBytes)}"];
+        }
+
+        return [$freeBytes < $needed ? 'warn' : 'ok', "frei {$gib($freeBytes)}".($freeBytes < $needed ? ", empfohlen mind. {$gib($needed)}" : '')];
     }
 
     private static function ago(int $timestamp): string

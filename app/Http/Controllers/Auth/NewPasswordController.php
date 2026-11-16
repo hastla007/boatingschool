@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\InvitationAcceptance;
 use App\Support\AgeConfirmation;
+use App\Support\LoginThrottle;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -116,7 +117,11 @@ class NewPasswordController extends Controller
         // Review-Runde 12: ist der Reset der erste Nachweis der Mailbox,
         // stammt eine schon eingerichtete 2FA nicht sicher vom Besitzer
         // (jemand konnte die Adresse vor ihm registrieren) -- zurücksetzen.
-        if ($user->email_verified_at === null && $user->two_factor_secret !== null) {
+        // Audit SEC-W-2: nur bei Konten, die NIE eine bestätigte Adresse
+        // hatten -- eine Adressänderung durch den Support setzt
+        // email_verified_at zurück, darf aber nicht über einen Reset die
+        // 2FA entfernen (dafür gibt es resetTwoFactor mit Prüfung).
+        if ($user->email_ever_verified_at === null && $user->two_factor_secret !== null) {
             $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null]);
         }
         $user->forceFill([
@@ -163,5 +168,8 @@ class NewPasswordController extends Controller
         event(new PasswordReset($user));
         // Mobile-API: auch alle App-Gerätesitzungen beenden.
         DeviceSessions::revokeAllFor($user->id);
+        // Audit SEC-W-1: wer die Mailbox nachweist, startet ohne fremde
+        // Fehlversuche (Konto-Zähler und eigenes Netz).
+        LoginThrottle::clear($user->email, request()->ip());
     }
 }

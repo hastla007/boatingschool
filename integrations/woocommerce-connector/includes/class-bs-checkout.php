@@ -34,9 +34,16 @@ final class BS_Checkout
             return __('Die Bootsschul-Plattform ist gerade nicht erreichbar oder Ihr Konto ist dort noch nicht bekannt. Bitte versuchen Sie es später erneut.', 'bs-connector');
         }
         if (! $status['can_purchase']) {
-            return $status['status'] === 'pending_review'
-                ? __('Ihr Konto ist noch nicht für den Einkauf freigeschaltet. Wir prüfen Ihre Angaben; haben Sie bereits Zugang zur Plattform, können Sie Ihr Konto auch selbst unter „Mein Konto → Bootsschule verknüpfen“ verknüpfen.', 'bs-connector')
-                : __('Bitte verknüpfen Sie Ihr Kundenkonto zuerst unter „Mein Konto → Bootsschule verknüpfen“ mit Ihrer Bootsschule.', 'bs-connector');
+            if ($status['status'] === 'pending_review') {
+                return __('Ihr Konto ist noch nicht für den Einkauf freigeschaltet. Wir prüfen Ihre Angaben; haben Sie bereits Zugang zur Plattform, können Sie Ihr Konto auch selbst unter „Mein Konto → Bootsschule verknüpfen“ verknüpfen.', 'bs-connector');
+            }
+            // Abgelehnt: Verknüpfen ist nicht möglich (die App lehnt mit 409 ab) --
+            // nicht dorthin schicken, sondern wie „Mein Konto“ an den Support.
+            if ($status['status'] === 'rejected') {
+                return __('Für dieses Konto ist kein Einkauf für eine Bootsschule möglich. Bitte wenden Sie sich an den Support.', 'bs-connector');
+            }
+
+            return __('Bitte verknüpfen Sie Ihr Kundenkonto zuerst unter „Mein Konto → Bootsschule verknüpfen“ mit Ihrer Bootsschule.', 'bs-connector');
         }
 
         return null;
@@ -61,7 +68,10 @@ final class BS_Checkout
         if (! $passed || ! BS_Products::is_platform_product(wc_get_product($product_id))) {
             return $passed;
         }
-        $blocker = self::purchase_blocker();
+        // Auch Kurse, die die Schule nicht erhalten kann, gar nicht erst in den
+        // Warenkorb (Store API und klassisch) -- sonst landet der Artikel dort und
+        // fällt erst an der Kasse auf.
+        $blocker = self::purchase_blocker() ?? self::deliverability_blocker([wc_get_product($product_id)]);
         if ($blocker !== null) {
             wc_add_notice($blocker, 'error');
 
@@ -91,8 +101,10 @@ final class BS_Checkout
      * Kurs- und Verlängerungscodes nur für Kurse, die die Schule derzeit erhalten
      * kann. Nutzt den zwischengespeicherten Status -- an der Kasse hat
      * purchase_blocker(true) ihn unmittelbar vorher frisch geladen.
+     *
+     * @param  array|null  $products  Zu prüfende Produkte (null = Warenkorb).
      */
-    private static function deliverability_blocker(): ?string
+    private static function deliverability_blocker(?array $products = null): ?string
     {
         $status = is_user_logged_in() ? BS_Accounts::status(get_current_user_id()) : null;
         $deliverable = $status['deliverable_course_codes'] ?? null;
@@ -100,8 +112,10 @@ final class BS_Checkout
         if (! is_array($deliverable)) {
             return null;
         }
-        foreach (WC()->cart ? WC()->cart->get_cart() : [] as $item) {
-            $product = $item['data'] ?? null;
+        if ($products === null) {
+            $products = array_map(static fn ($item) => $item['data'] ?? null, WC()->cart ? WC()->cart->get_cart() : []);
+        }
+        foreach ($products as $product) {
             if (! BS_Products::is_platform_product($product)) {
                 continue;
             }

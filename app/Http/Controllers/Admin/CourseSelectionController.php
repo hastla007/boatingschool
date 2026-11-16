@@ -9,6 +9,7 @@ use App\Models\CourseDefinition;
 use App\Models\CourseExamRegistration;
 use App\Models\CourseWebshopLink;
 use App\Models\TenantCourseDisabled;
+use App\Support\DisabledCourses;
 use App\Support\ExamRegistration;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -120,6 +121,7 @@ class CourseSelectionController extends Controller
             );
         }
 
+        app(DisabledCourses::class)->forget();
         $after = $snapshot();
         if ($before['disabled'] !== $after['disabled']) {
             AuditLog::record($tenant->id, $request->user()->id, 'course-selection.update', 'tenant_course_disabled', $tenant->id, ['disabled' => $before['disabled']], ['enabled' => $enabledIds->values()->toArray(), 'disabled' => $after['disabled']]);

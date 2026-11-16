@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\SendLearningReminders;
 use App\Models\AuditLog;
 use App\Models\Entitlement;
+use App\Models\Tenant;
 use App\Models\TenantUser;
+use App\Notifications\LearningReminder;
 use App\Services\LearnerOverview;
+use App\Support\BestEffortMail;
 use App\Support\InstructorScope;
 use App\Support\MailPreferences;
 use App\Support\TenantContext;
@@ -27,9 +29,12 @@ class InactiveLearnerController extends Controller
     /** Bis zu so vielen Empfängern wird direkt (mit Rückmeldung) verschickt. */
     private const SYNC_LIMIT = 10;
 
+    /** Höchstens so viele Erinnerungen je Auslösung. */
+    private const MAX_REMINDERS = 200;
+
     public const DAY_OPTIONS = [7, 14, 30, 60];
 
-    private const REMINDER_COOLDOWN_DAYS = SendLearningReminders::REMINDER_COOLDOWN_DAYS;
+    private const REMINDER_COOLDOWN_DAYS = 7;
 
     public function index(Request $request, TenantContext $tenantContext, LearnerOverview $overview): View
     {
@@ -48,33 +53,29 @@ class InactiveLearnerController extends Controller
         $days = $this->days($request);
         $tenant = $tenantContext->tenant();
 
-        $rows = $this->inactive($tenantContext, $overview, $days)
+        $candidates = $this->inactive($tenantContext, $overview, $days)
             ->when($request->filled('user_id'), fn ($c) => $c->where('membership.user_id', $request->input('user_id')))
             ->reject(fn ($row) => $row['recently_reminded'])
             // Lern-Erinnerungen abbestellt (§ 7 UWG): nicht anschreiben, nicht mitzählen.
-            ->filter(fn ($row) => MailPreferences::wants($row['membership']->user, MailPreferences::LEARNING_REMINDERS))
-            ->take(200);
-
-        $items = $rows->map(fn ($row) => [
-            'user_id' => $row['membership']->user_id,
-            'days_since' => $row['last_activity'] ? (int) $row['last_activity']->diffInDays(now()) : null,
-        ])->values()->all();
+            ->filter(fn ($row) => MailPreferences::wants($row['membership']->user, MailPreferences::LEARNING_REMINDERS));
+        $rows = $candidates->take(self::MAX_REMINDERS);
+        $omitted = $candidates->count() - $rows->count();
 
         // Review-Runde 11: viele Empfänger nicht im Request nacheinander
-        // anschreiben (bei echtem SMTP sonst Zeitüberschreitung) -- der
-        // Versand läuft als Queue-Job je Paket im Worker (Mandantenkontext
-        // über TenantAware, Wiederholung bei Mailfehlern).
-        if (count($items) > self::SYNC_LIMIT) {
-            foreach (array_chunk($items, SendLearningReminders::CHUNK) as $chunk) {
-                SendLearningReminders::dispatch($chunk);
-            }
-            AuditLog::record($tenant->id, $request->user()->id, 'participants.remind_inactive', 'tenant_user', null, null, ['days' => $days, 'queued' => count($items)]);
+        // anschreiben (bei echtem SMTP sonst Zeitüberschreitung).
+        // Audit ARC-2: über die Queue statt defer() (das hing weiter am
+        // PHP-FPM-Zeitlimit); vermerkt wird beim Einreihen.
+        if ($rows->count() > self::SYNC_LIMIT) {
+            [$queued] = $this->send($tenant, $rows, queue: true);
+            AuditLog::record($tenant->id, $request->user()->id, 'participants.remind_inactive', 'tenant_user', null, null, ['days' => $days, 'queued' => $queued]);
 
             return redirect()->route('admin.inactive.index', ['days' => $days])
-                ->with('status', count($items).' Erinnerungen werden jetzt verschickt.');
+                ->with('status', ($queued === 1 ? 'Eine Erinnerung wird' : "{$queued} Erinnerungen werden").' im Hintergrund verschickt.'
+                    // Audit ARC-2: Kürzung bei der Höchstgrenze nennen statt still abzuschneiden.
+                    .($omitted > 0 ? ' Höchstens '.self::MAX_REMINDERS." auf einmal: {$omitted} weitere bitte erneut erinnern." : ''));
         }
 
-        [$sent, $failed] = SendLearningReminders::sendBatch($tenant, $items);
+        [$sent, $failed] = $this->send($tenant, $rows);
         AuditLog::record($tenant->id, $request->user()->id, 'participants.remind_inactive', 'tenant_user', $request->input('user_id'), null, ['days' => $days, 'sent' => $sent]);
 
         return redirect()->route('admin.inactive.index', ['days' => $days])
@@ -106,5 +107,35 @@ class InactiveLearnerController extends Controller
         $days = (int) $request->input('days', 14);
 
         return in_array($days, self::DAY_OPTIONS, true) ? $days : 14;
+    }
+
+    /** @return array{0: int, 1: int} versendet bzw. eingereiht, fehlgeschlagen */
+    private function send(Tenant $tenant, Collection $rows, bool $queue = false): array
+    {
+        $sent = 0;
+        $failed = 0;
+        foreach ($rows as $row) {
+            $membership = $row['membership'];
+            // Erst bedingt vermerken (zwei Admins gleichzeitig: nur einer
+            // sendet), bei Mailfehler zurücksetzen, damit ein neuer Versuch
+            // nicht 7 Tage gesperrt ist.
+            $claimed = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $membership->user_id)
+                ->where(fn ($q) => $q->whereNull('reminded_at')->orWhere('reminded_at', '<', now()->subDays(self::REMINDER_COOLDOWN_DAYS)))
+                ->update(['reminded_at' => now()]);
+            if ($claimed === 0) {
+                continue;
+            }
+            $daysSince = $row['last_activity'] ? (int) $row['last_activity']->diffInDays(now()) : null;
+            $notification = new LearningReminder($tenant, $daysSince);
+            $mail = $queue ? fn () => $membership->user->notify($notification) : fn () => $membership->user->notifyNow($notification);
+            if (BestEffortMail::send($mail, 'Lernerinnerung '.$membership->user_id)) {
+                $sent++;
+            } else {
+                $failed++;
+                TenantUser::where('tenant_id', $tenant->id)->where('user_id', $membership->user_id)->update(['reminded_at' => $membership->reminded_at]);
+            }
+        }
+
+        return [$sent, $failed];
     }
 }

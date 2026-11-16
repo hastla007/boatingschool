@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\Tenant;
-use App\Models\TenantCourseDisabled;
 use App\Models\User;
+use App\Support\DisabledCourses;
 use Illuminate\Support\Collection;
 
 /**
@@ -28,7 +28,7 @@ class EntitlementService
     /** @return Collection<int, Entitlement> */
     public function activeEntitlements(Tenant $tenant, User $user): Collection
     {
-        $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
+        $disabledCourseIds = app(DisabledCourses::class)->ids($tenant);
 
         return Entitlement::with('course.modules')
             ->where('tenant_id', $tenant->id)
@@ -44,9 +44,47 @@ class EntitlementService
             ->values();
     }
 
+    /**
+     * Aktive volle Kurszugänge (capabilities = null) -- was das Web als
+     * gebucht zeigt. Teilzugänge (WP-Import, Lerngruppe mit einzelnen
+     * Funktionen) nutzt nur die App; im Web öffnen sie keine Kursseite
+     * (hasAccess()), der Kurs bleibt dort buchbar (QA-L-3).
+     *
+     * @return Collection<int, Entitlement>
+     */
+    public function activeFullEntitlements(Tenant $tenant, User $user): Collection
+    {
+        return $this->activeEntitlements($tenant, $user)->filter(fn (Entitlement $e) => $e->capabilities === null)->values();
+    }
+
+    /** @return Collection<int, CourseDefinition> Kurse mit vollem Zugang (siehe activeFullEntitlements()) */
+    public function activeFullCourses(Tenant $tenant, User $user): Collection
+    {
+        return $this->activeFullEntitlements($tenant, $user)
+            ->map(fn (Entitlement $e) => $e->course)
+            ->unique('id')
+            ->values();
+    }
+
+    /**
+     * Voller Kurszugang. Ein auf einzelne Funktionen beschränkter Zugang
+     * (entitlement.capabilities, z. B. aus dem WP-Import oder einer
+     * Lerngruppe) zählt hier nicht -- siehe hasCapabilityAccess().
+     */
     public function hasAccess(Tenant $tenant, User $user, CourseDefinition $course): bool
     {
-        return $this->activeCourses($tenant, $user)->contains('id', $course->id);
+        return $this->activeEntitlements($tenant, $user)->contains(
+            fn (Entitlement $entitlement) => $entitlement->course_id === $course->id && $entitlement->capabilities === null
+        );
+    }
+
+    /** Zugang zu einer Funktion (smarttrainer, exam, video, ...): uneingeschränkt oder mit dieser Capability. */
+    public function hasCapabilityAccess(Tenant $tenant, User $user, CourseDefinition $course, string $capability): bool
+    {
+        return $this->activeEntitlements($tenant, $user)->contains(
+            fn (Entitlement $entitlement) => $entitlement->course_id === $course->id
+                && ($entitlement->capabilities === null || in_array($capability, $entitlement->capabilities, true))
+        );
     }
 
     /** Ob ein Kurs für diese Bootsschule aktuell angeboten werden kann (veröffentlicht, sitewide UND mandantenseitig aktiv). */
@@ -61,6 +99,6 @@ class EntitlementService
             return false;
         }
 
-        return ! TenantCourseDisabled::where('tenant_id', $tenant->id)->where('course_id', $course->id)->exists();
+        return ! app(DisabledCourses::class)->contains($tenant, $course->id);
     }
 }

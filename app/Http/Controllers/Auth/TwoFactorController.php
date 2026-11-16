@@ -87,7 +87,14 @@ class TwoFactorController extends Controller
 
     public function disable(Request $request): RedirectResponse
     {
-        $request->validate(['password' => ['bail', 'required', 'string', 'current_password']]);
+        // Audit SEC-W-5: neben dem Passwort auch der zweite Faktor selbst --
+        // eine übernommene Sitzung samt Passwort soll die 2FA nicht
+        // abschalten können.
+        $request->validate([
+            'password' => ['bail', 'required', 'string', 'current_password'],
+            'code' => ['nullable', 'string', 'max:20'],
+            'recovery_code' => ['nullable', 'string', 'max:40'],
+        ]);
         $user = $request->user();
 
         // 2FA-Pflicht fürs Team: wer im Team einer Schule mit Pflicht ist, kann sie nicht selbst abschalten
@@ -98,6 +105,22 @@ class TwoFactorController extends Controller
             ->where('tenant_branding.require_team_two_factor', true)->exists();
         if ($required) {
             return back()->withErrors(['password' => 'Deine Bootsschule verlangt die Zwei-Faktor-Anmeldung für das Team; sie lässt sich deshalb nicht abschalten.']);
+        }
+
+        if ($user->hasTwoFactor()) {
+            if (trim((string) $request->input('code')) === '' && trim((string) $request->input('recovery_code')) === '') {
+                return back()->withErrors(['code' => 'Bitte den Code aus der App oder einen Wiederherstellungscode eingeben.']);
+            }
+            // Gleiche Grenze wie bei der Anmeldung (gemeinsamer Zähler).
+            $key = 'two-factor:'.$user->id;
+            if (RateLimiter::tooManyAttempts($key, 5)) {
+                return back()->withErrors(['code' => 'Zu viele Versuche. Bitte in '.RateLimiter::availableIn($key).' Sekunden erneut versuchen.']);
+            }
+            RateLimiter::hit($key, 300);
+            if (! TwoFactorCheck::verify($user, (string) $request->input('code', ''), (string) $request->input('recovery_code', ''))) {
+                return back()->withErrors(['code' => 'Der Code stimmt nicht.']);
+            }
+            RateLimiter::clear($key);
         }
 
         $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null])->save();

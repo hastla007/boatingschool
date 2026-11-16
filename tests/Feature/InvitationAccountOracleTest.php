@@ -7,6 +7,7 @@ use App\Models\Entitlement;
 use App\Models\TenantCourseDisabled;
 use App\Models\TenantInvitation;
 use App\Models\User;
+use App\Services\ParticipantInviter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
@@ -77,14 +78,14 @@ class InvitationAccountOracleTest extends TestCase
             $again[] = $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/invite', ['name' => 'Gast Person', 'email' => $email])
                 ->baseResponse->getSession()->get('status');
         }
-        $this->assertSame(array_fill(0, 2, 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.'), $again);
+        $this->assertSame(array_fill(0, 2, ParticipantInviter::ALREADY_INVITED_STATUS), $again);
 
         // Beide stehen unter „Offene Einladungen“ mit dem eingegebenen
         // Namen, keiner in der Teilnehmerliste oder der Teilnehmerzahl.
         $page = $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=participants')->assertOk();
         $page->assertSee('Offene Einladungen (2)')->assertSee($newEmail)->assertSee($existing->email);
         $page->assertSee('0 Teilnehmer');
-        $this->assertSame(2, substr_count($page->getContent(), 'eingeladen, noch nicht angemeldet'));
+        $this->assertSame(2, substr_count($page->getContent(), 'Einladung offen'));
         $this->assertSame(0, $page->viewData('participants')->total());
         $this->assertSame(0, $page->viewData('learnerCount'));
         $this->assertSame(['Gast Person', 'Gast Person'], $page->viewData('openInvitations')->pluck('name')->all());
@@ -92,7 +93,7 @@ class InvitationAccountOracleTest extends TestCase
         // Sammel-Einladung am selben Tag: beide gleich übersprungen.
         $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/bulk-invite', ['emails' => $newEmail."\n".$existing->email])
             ->assertSessionHas('status', fn ($s) => str_starts_with($s, '0 Personen eingeladen.')
-                && str_contains($s, "{$newEmail} (heute schon eingeladen)") && str_contains($s, "{$existing->email} (heute schon eingeladen)"));
+                && str_contains($s, "{$newEmail} (bereits eingeladen)") && str_contains($s, "{$existing->email} (bereits eingeladen)"));
     }
 
     public function test_a_code_is_reserved_the_same_and_redeemed_only_on_acceptance_for_both(): void
@@ -202,7 +203,7 @@ class InvitationAccountOracleTest extends TestCase
             }
             $this->assertSame($round === 0
                 ? ['Einladung verschickt.', 'Einladung verschickt.']
-                : array_fill(0, 2, 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.'), $statuses);
+                : array_fill(0, 2, ParticipantInviter::ALREADY_INVITED_STATUS), $statuses);
         }
 
         // Beide nur als „eingeladen“ mit Namen, keiner in der Team-Liste.

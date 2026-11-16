@@ -16,8 +16,13 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('tenant_invitation', function (Blueprint $table) {
-            $table->string('name', 255)->nullable();
+        // name legt auch 2024_02_01_000712 an (Audit SEC-W-3, auf main):
+        // je nach Reihenfolge der Installation existiert die Spalte schon.
+        $hasName = Schema::hasColumn('tenant_invitation', 'name');
+        Schema::table('tenant_invitation', function (Blueprint $table) use ($hasName) {
+            if (! $hasName) {
+                $table->string('name', 255)->nullable();
+            }
             $table->string('coupon_code', 255)->nullable();
         });
     }
@@ -25,7 +30,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('tenant_invitation', function (Blueprint $table) {
-            $table->dropColumn(['name', 'coupon_code']);
+            // name gehört auch zu 000712 und bleibt (dessen down entfernt sie).
+            $table->dropColumn('coupon_code');
         });
     }
 };

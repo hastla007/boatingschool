@@ -127,7 +127,8 @@ final class BS_Admin
     public static function handle_connection_test(): void
     {
         check_admin_referer('bs_connector_test');
-        if (! current_user_can('manage_woocommerce')) {
+        // Wie die Einstellungen nur für Administratoren (BS_Settings::CAPABILITY).
+        if (! BS_Settings::can_manage()) {
             wp_die(esc_html__('Keine Berechtigung.', 'bs-connector'), 403);
         }
         // Frisch abfragen, nicht aus dem Zwischenspeicher.

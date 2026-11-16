@@ -22,7 +22,6 @@ class OwnerConnectionUsageTest extends TestCase
         // --- Infrastruktur: die Owner-Verbindung selbst ---
         'app/Support/OwnerConnection.php' => 'Der Helfer selbst (setzt und restauriert database.default).',
         'app/Http/Middleware/UseAdminDatabaseConnection.php' => 'Middleware "admin-db" für Superadmin- und Commerce-Routen.',
-
         // --- Superadmin (läuft hinter admin-db, bewusst mandantenübergreifend) ---
         'app/Http/Controllers/Superadmin/CouponController.php' => 'Kurswahl nur aus dem Plattform-Katalog (tenant_id NULL).',
         'app/Http/Controllers/Superadmin/CourseEditorController.php' => 'Plattform-Katalog pflegen, aktive Lernende über alle Schulen zählen.',
@@ -35,14 +34,12 @@ class OwnerConnectionUsageTest extends TestCase
         'app/Http/Controllers/Superadmin/TenantController.php' => 'Schule anlegen: Inhaberkonto plattformweit per E-Mail finden.',
         'app/Http/Controllers/Superadmin/UserAccountController.php' => 'Mitgliedschaften eines Kontos über alle Schulen verwalten.',
         'app/Http/Controllers/Superadmin/UserController.php' => 'Rollenänderung in beliebiger Schule (bestehende Mitgliedschaft lesen).',
-
         // --- Commerce-API (signierte Shop-Aufrufe ohne Mandantenkontext, admin-db) ---
         'app/Commerce/Outbox.php' => 'Ausgehende Shop-Ereignisse aller Schulen (Queue-Worker ohne Mandant).',
         'app/Commerce/ShopAccounts.php' => 'Verknüpfungscode einlösen: Schule ergibt sich erst aus dem Code.',
         'app/Commerce/ShopOrders.php' => 'Bestellungen aus dem Shop: Schule ergibt sich erst aus dem Shopkonto.',
         'app/Http/Controllers/Commerce/CommerceController.php' => 'Code-Batches per Shop-ID/Bestellung nachschlagen (kein Mandantenkontext).',
         'app/Models/CommerceShopAccount.php' => 'Kaufberechtigung prüfen, auch aus Shop-Aufrufen ohne Mandant.',
-
         // --- Konsolenbefehle (Cron/Deploy, laufen ohne Mandantenkontext) ---
         'app/Console/Commands/AnonymizeDatabase.php' => 'Staging-Kopie anonymisieren: personenbezogene Daten aller Schulen ersetzen (nie in production).',
         'app/Console/Commands/AuditMissingRequiredImages.php' => 'Inhaltsprüfung über den gesamten Fragenkatalog.',
@@ -57,7 +54,6 @@ class OwnerConnectionUsageTest extends TestCase
         'app/Console/Commands/PruneInactiveLearners.php' => 'Löschfrist inaktiver Lernender: Aktivität und Kurszugänge über alle Schulen prüfen.',
         'app/Console/Commands/RemindExpiringEntitlements.php' => 'Ablauf-Erinnerungen für Lernende aller Schulen.',
         'app/Console/Commands/WarmCourseCache.php' => 'Kurs-Cache für alle veröffentlichten Kurse vorwärmen.',
-
         // --- Mandantenauflösung, Login und Konten (vor bzw. außerhalb eines Mandantenkontexts) ---
         'app/Http/Middleware/Api/ResolveApiTenant.php' => 'API: Schule per Slug und Mitgliedschaft auflösen, bevor RLS greift.',
         'app/Http/Middleware/EnsureAnyTenantMembership.php' => 'Mitgliedschaft prüfen, bevor ein Mandant gesetzt ist.',
@@ -75,7 +71,6 @@ class OwnerConnectionUsageTest extends TestCase
         'app/Models/User.php' => 'Hat das Konto Team-Rollen in irgendeiner Schule?',
         'app/Api/Present.php' => 'API: Mitgliedschaften und Branding aller Schulen des Kontos.',
         'app/Notifications/ConfirmPendingEmail.php' => 'Anredeform des Kontos beim Mailversand (Queue ohne Mandant).',
-
         // --- Mandantenübergreifende Dienste ---
         'app/Services/AccountErasureService.php' => 'Konto löschen: Mitgliedschaften/Daten in allen Schulen.',
         'app/Services/PersonalDataExportService.php' => 'DSGVO-Auskunft: Sitzungen/Geräte sind kontoweit, nicht je Schule.',
@@ -83,8 +78,6 @@ class OwnerConnectionUsageTest extends TestCase
         'app/Services/InvitationCoupon.php' => 'Code beim Einladen prüfen: Kurs des Plattform-Katalogs (tenant_id NULL) laden.',
         'app/Services/ParticipantInviter.php' => 'Einladung: bestehendes Konto plattformweit per E-Mail finden.',
         'app/Services/TenantOffboardingService.php' => 'Schule auflösen: Exportdateien der Schule finden und löschen.',
-        'app/Jobs/SendInvitationMails.php' => 'Sammel-Einladung im Queue-Worker: Bestandskonto (noch kein Mitglied der Schule) per ID laden.',
-        'app/Jobs/SendPlatformAnnouncementMails.php' => 'Plattform-Mitteilung im Queue-Worker: Inhaber/Admins vieler Schulen (wie der Superadmin-Bereich).',
         'app/Services/NewLoginDeviceNotifier.php' => 'Hinweis bei neuem Gerät: Team-Rollen des Kontos in allen Schulen prüfen.',
         'app/Services/CouponBatchFactory.php' => 'Code-Erzeugung: Eindeutigkeit gegen Codes aller Schulen prüfen (nur Abgleich, kein Lesen fremder Daten).',
         'app/Http/Controllers/Admin/ParticipantController.php' => 'Einladung durch Ausbilder: Konto zur E-Mail plattformweit finden.',
@@ -94,7 +87,6 @@ class OwnerConnectionUsageTest extends TestCase
         'app/Models/Coupon.php' => 'Codes müssen plattformweit eindeutig sein.',
         'app/Support/OpsAlert.php' => 'Support-Adresse aus den Plattform-Einstellungen.',
         'app/Support/ProductionReadiness.php' => 'Betriebsprüfung: Rollen, Queue und Plattformdaten.',
-
         // --- Plattform-Katalog (CourseDefinition mit tenant_id NULL statt Tenant-Scope) ---
         'app/Http/Controllers/Admin/AdminDashboardController.php' => 'Kursauswahl/Coupon-Übersicht aus dem Plattform-Katalog.',
         'app/Http/Controllers/Admin/AnnouncementController.php' => 'Kursnamen der Zielgruppe aus dem Plattform-Katalog.',
@@ -108,6 +100,28 @@ class OwnerConnectionUsageTest extends TestCase
         'app/Services/CouponRedemptionService.php' => 'Kurs eines Codes aus dem Plattform-Katalog.',
         'app/Services/PraxisFormDataResolver.php' => 'Kursnamen des Plattform-Katalogs.',
         'app/Support/ExamBooking.php' => 'Plattformweit deaktivierte Katalogkurse.',
+        'app/Api/CourseFiles.php' => 'Kursdateien der App: Plattform-Katalogkurse (tenant_id null) über den Kurscode finden.',
+        'app/Console/Commands/CreateLearningGroup.php' => 'CLI-Befehl ohne Request-Mandant: Lerngruppe für eine bestimmte Schule anlegen (Betreiber-Werkzeug).',
+        'app/Console/Commands/ExportTenant.php' => 'CLI-Export einer ganzen Schule (Vertragsende/Umzug) ohne Request-Mandant.',
+        'app/Console/Commands/ImportMobileAccessRules.php' => 'CLI-Import aus der WP-App: Plattform-Katalogkurse und Zugriffsregeln je Schule ohne Request-Mandant.',
+        'app/Console/Commands/ImportMobileCourseFiles.php' => 'CLI-Import aus der WP-App: Kursdateien zu Plattform-Katalogkursen ohne Request-Mandant.',
+        'app/Console/Commands/ImportMobileEntitlements.php' => 'CLI-Import aus der WP-App: Konten plattformweit per E-Mail finden und Zugänge in der Zielschule anlegen.',
+        'app/Console/Commands/ImportMobileFaqs.php' => 'CLI-Import der Kunden-FAQs aus der WP-App ohne Request-Mandant.',
+        'app/Console/Commands/RevokeLearningGroup.php' => 'CLI-Befehl ohne Request-Mandant: Lerngruppe beliebiger Schule widerrufen (Betreiber-Werkzeug).',
+        'app/Http/Controllers/Api/V1/CouponController.php' => 'Code einlösen in der App: Plattform-Katalogkurse (tenant_id null) zu den Kurscodes laden.',
+        'app/Http/Controllers/Api/V1/WebSessionController.php' => 'Einmal-Anmeldung der Webansicht: Mitgliedschaften des Kontos schulübergreifend prüfen (Team-Rollen ausschließen).',
+        'app/Http/Controllers/AppAccountDeletionController.php' => 'Bestätigungsseite der Kontolöschung ohne Anmeldung: Branding der Schule des Antrags laden.',
+        'app/Http/Controllers/ProtectedMediaController.php' => 'Signierte Auslieferung privater Dateien (Tipp-PDFs, Videoschritt-Bilder) ohne Mandantenkontext; Berechtigung prüft ProtectedMedia.',
+        'app/Http/Controllers/QuestionMediaController.php' => 'Signierte Auslieferung lizenzierter Fragenbilder; Berechtigung prüft QuestionMedia.',
+        'app/Http/Middleware/ConsumeMobileWebSession.php' => 'Einlösen des Einmal-Codes der Webansicht vor der Anmeldung: Konto und Mitgliedschaft prüfen.',
+        'app/Services/AppAccountDeletion.php' => 'Kontolöschung aus der App per Mail-Link ohne Anmeldung: Antrag, Schule und Konto laden.',
+        'app/Services/CourseRelationService.php' => 'Kursbeziehungen (Groß ersetzt Klein) über den Plattform-Katalog (tenant_id null).',
+        'app/Services/LearningGroupService.php' => 'Lerngruppen: Plattform-Katalogkurse, Mitgliedschaft der Person und Gruppenzugänge der Schule unter Sperre.',
+        'app/Support/NavigationChart.php' => 'Signierte Kartenausschnitte ohne Mandantenkontext: zugehörigen Kurs zur Datei finden.',
+        'app/Support/ProtectedMedia.php' => 'Berechtigung für signierte private Dateien: Konto, Schule und Mitgliedschaft aus dem signierten Link laden.',
+        'app/Support/QuestionMedia.php' => 'Fragenbilder: Medien-Datensatz zur signierten Adresse ohne Mandantenkontext laden.',
+        'app/Support/TipPdf.php' => 'Tipp-PDFs: Medien-Datensatz zur signierten Adresse ohne Mandantenkontext laden.',
+        'app/Support/VideoStepImage.php' => 'Videoschritt-Bilder: Kurs zur Lektion ohne Mandantenkontext finden und Dateien zuordnen.',
     ];
 
     private const PATTERNS = [

@@ -119,7 +119,7 @@ final class BS_Privacy
             foreach (array_keys(self::META_KEYS) as $key) {
                 $removed = delete_user_meta($user->ID, $key) || $removed;
             }
-            delete_transient(BS_Accounts::STATUS_CACHE.$user->ID);
+            BS_Accounts::forget_status($user->ID);
             BS_Log::info('Datenschutz: Plugin-Metadaten eines Kunden gelöscht', ['customer_id' => $user->ID]);
         }
 

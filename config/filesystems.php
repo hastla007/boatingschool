@@ -33,7 +33,11 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Keine generische /storage/{path}-Route für die private Disk:
+            // geschützte Dateien (Fragenbilder, Kartenausschnitte, Exporte)
+            // laufen nur über eigene, geprüfte Routen. Ein Abruf einer
+            // alten /storage/...-Adresse ergibt so schlicht 404.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

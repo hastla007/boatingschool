@@ -31,7 +31,7 @@ class LearningAttemptReloadTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $revision->id,
-            'answer_id' => $correctAnswer->id,
+            'answer_id' => $this->answerToken($learner, $correctAnswer->id),
             'mode' => 'smarttrainer',
         ]);
 
@@ -58,7 +58,7 @@ class LearningAttemptReloadTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $revision->id,
-            'answer_id' => $correctAnswer->id,
+            'answer_id' => $this->answerToken($learner, $correctAnswer->id),
             'mode' => 'smarttrainer',
         ]);
         $resultUrl = $response->headers->get('Location');
@@ -89,7 +89,7 @@ class LearningAttemptReloadTest extends TestCase
 
         $response = $this->actingAsInTenant($learnerA, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $revision->id,
-            'answer_id' => $correctAnswer->id,
+            'answer_id' => $this->answerToken($learnerA, $correctAnswer->id),
             'mode' => 'smarttrainer',
         ]);
         $resultUrl = $response->headers->get('Location');

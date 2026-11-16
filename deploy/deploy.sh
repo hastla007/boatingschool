@@ -10,11 +10,16 @@
 # Zwei Betriebsarten (DEPLOY_MODE):
 #
 # inplace (Standard, bestehende Server): ein Git-Checkout, der aktualisiert
-#   wird. Ablauf: Wartungsmodus → Sicherung → Code holen → Abhängigkeiten →
-#   Assets → Migrationen (Owner-Rolle) → Inhalte (Seeder, nur bei Bedarf) →
-#   Storage-Link → Caches → Wartungsmodus aus → Go-live-Check. Schlägt ein
-#   Schritt fehl, bleibt die Seite im Wartungsmodus (sicherer als halb
-#   aktualisierter Code) -- Fehler beheben und das Skript erneut starten,
+#   wird. Ablauf: Sperre (nur ein Deploy zur Zeit) → Code holen, ohne
+#   umzuschalten (nur Fast-forward) → Abhängigkeiten und Assets in einem
+#   Vorbereitungsordner (.deploy/staging) bauen, die Seite läuft dabei weiter
+#   → Wartungsmodus → Sicherung → umschalten (Code, vendor/, public/build) →
+#   Migrationen (Owner-Rolle) → Inhalte (Seeder, nur bei Bedarf) →
+#   Storage-Link → Caches → Wartungsmodus aus → Go-live-Check.
+#   Schlägt ein Schritt vor dem Wartungsmodus fehl, läuft die Seite unverändert
+#   weiter. Danach bleibt sie im Wartungsmodus (sicherer als halb
+#   aktualisierter Code); das Skript nennt den vorherigen Commit für den
+#   Rückweg (deploy/README.md „Rückroll“). Fehler beheben und erneut starten,
 #   oder mit `php artisan up` zurück.
 #
 # releases (optional): jedes Update in einem eigenen Ordner
@@ -31,83 +36,147 @@
 #
 # Assets: Liegt in BUILD_DIR (Umgebungsvariable oder --build-dir) ein fertiger
 # Vite-Build (Inhalt von public/build, z. B. vom Deploy-Workflow), wird er nur
-# kopiert -- sonst wird wie bisher auf dem Server gebaut. Enthält BUILD_DIR
-# eine build-sha.txt, muss sie zum ausgerollten Commit passen.
+# kopiert -- sonst wird auf dem Server gebaut (vor dem Wartungsmodus). Enthält
+# BUILD_DIR eine build-sha.txt, muss sie zum ausgerollten Commit passen.
 #
 # Inhalte: `db:seed` (Fragenkatalog usw.) läuft nur, wenn sich seit dem zuletzt
 # ausgerollten Commit (storage/app/deployed_sha) etwas unter database/seeders
 # oder database/data geändert hat, beim ersten Deploy ohne gespeicherten Stand
 # oder mit --with-content.
+#
+# Sicherung: `php artisan app:backup --deploy` (nur lokal, die letzten
+# BACKUP_KEEP_DEPLOY bleiben) vor jeder Migration.
 set -Eeuo pipefail
-
-BRANCH=""
-TARGET=""
-WITH_CONTENT=0
-ROLLBACK=0
-BUILD_DIR="${BUILD_DIR:-}"
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --with-content) WITH_CONTENT=1 ;;
-        --rollback) ROLLBACK=1 ;;
-        --build-dir) BUILD_DIR="${2:?--build-dir braucht ein Verzeichnis}"; shift ;;
-        --build-dir=*) BUILD_DIR="${1#--build-dir=}" ;;
-        -*) echo "Unbekannte Option: $1" >&2; exit 2 ;;
-        *)
-            if [ -z "$BRANCH" ]; then BRANCH="$1"
-            elif [ -z "$TARGET" ]; then TARGET="$1"
-            else echo "Zu viele Argumente: $1" >&2; exit 2
-            fi ;;
-    esac
-    shift
-done
-BRANCH="${BRANCH:-main}"
-
-# Physischer Pfad (current ist im Modus releases ein Symlink auf den Release-Ordner).
-APP_DIR="$(cd -P "$(dirname "$0")/.." && pwd -P)"
-cd "$APP_DIR"
 
 STATE_REL="storage/app/deployed_sha"
 CONTENT_PATHS=(database/seeders database/data)
 KEEP_RELEASES="${KEEP_RELEASES:-5}"
 GIT_ARGS=()
+BRANCH=""
+TARGET=""
+WITH_CONTENT=0
+ROLLBACK=0
+BUILD_DIR="${BUILD_DIR:-}"
+# Zustand für on_error.
+PREV=""
+DOWN=0
+SWITCHED=0
+REL=""
+
+# Alles steht in main() (Aufruf ganz unten, in einer Zeile mit exit): Bash
+# liest das Skript sonst stückweise, und `git merge` ersetzt diese Datei im
+# Modus inplace mitten im Lauf.
+main() {
+    parse_args "$@"
+
+    # Physischer Pfad (current ist im Modus releases ein Symlink auf den Release-Ordner).
+    APP_DIR="$(cd -P "$(dirname "$0")/.." && pwd -P)"
+    cd "$APP_DIR"
+
+    if [ -z "${DEPLOY_MODE:-}" ]; then
+        if [ "$(basename "$(dirname "$APP_DIR")")" = "releases" ]; then DEPLOY_MODE=releases; else DEPLOY_MODE=inplace; fi
+    fi
+    case "$DEPLOY_MODE" in
+        inplace|releases) ;;
+        *) die "Unbekannter DEPLOY_MODE: $DEPLOY_MODE (inplace oder releases)" ;;
+    esac
+    if [ "$ROLLBACK" = 1 ] && [ "$DEPLOY_MODE" != releases ]; then
+        die "--rollback gibt es nur mit DEPLOY_MODE=releases (im Modus inplace: deploy/README.md „Rückroll“)."
+    fi
+
+    if [ "$DEPLOY_MODE" = releases ]; then
+        if [ "$ROLLBACK" = 1 ]; then rollback_releases; else deploy_releases; fi
+    else
+        deploy_inplace
+    fi
+}
+
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --with-content) WITH_CONTENT=1 ;;
+            --rollback) ROLLBACK=1 ;;
+            --build-dir) BUILD_DIR="${2:?--build-dir braucht ein Verzeichnis}"; shift ;;
+            --build-dir=*) BUILD_DIR="${1#--build-dir=}" ;;
+            -*) echo "Unbekannte Option: $1" >&2; exit 2 ;;
+            *)
+                if [ -z "$BRANCH" ]; then BRANCH="$1"
+                elif [ -z "$TARGET" ]; then TARGET="$1"
+                else echo "Zu viele Argumente: $1" >&2; exit 2
+                fi ;;
+        esac
+        shift
+    done
+    BRANCH="${BRANCH:-main}"
+}
 
 step() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
 info() { printf '    %s\n' "$1"; }
 warn() { printf '\n\033[1;33m%s\033[0m\n' "$1"; }
 die() { printf '\n\033[1;31m%s\033[0m\n' "$1" >&2; exit 1; }
 
-if [ -z "${DEPLOY_MODE:-}" ]; then
-    if [ "$(basename "$(dirname "$APP_DIR")")" = "releases" ]; then DEPLOY_MODE=releases; else DEPLOY_MODE=inplace; fi
-fi
-case "$DEPLOY_MODE" in
-    inplace|releases) ;;
-    *) die "Unbekannter DEPLOY_MODE: $DEPLOY_MODE (inplace oder releases)" ;;
-esac
-if [ "$ROLLBACK" = 1 ] && [ "$DEPLOY_MODE" != releases ]; then
-    die "--rollback gibt es nur mit DEPLOY_MODE=releases (im Modus inplace: Fehler beheben und neu ausrollen, im Notfall Sicherung zurückspielen)."
-fi
+# Nur ein Deploy zur Zeit (z. B. Knopf in GitHub und Hand-Deploy gleichzeitig).
+lock() {
+    command -v flock >/dev/null 2>&1 || die "flock fehlt (Paket util-linux) -- ohne Sperre kein Deploy."
+    mkdir -p "$(dirname "$1")"
+    exec 9>"$1"
+    flock -n 9 || die "Es läuft bereits ein Deploy (Sperre $1)."
+}
 
-# Vite-Build aus BUILD_DIR übernehmen oder bauen ($1 = Code-Ordner, $2 = Commit).
-assets() {
-    local dir="$1" sha="$2" use_prebuilt=0
-    if [ -n "$BUILD_DIR" ]; then
-        if [ ! -f "$BUILD_DIR/manifest.json" ]; then
-            info "BUILD_DIR=$BUILD_DIR enthält keinen Vite-Build (manifest.json fehlt) -- baue auf dem Server."
-        elif [ -f "$BUILD_DIR/build-sha.txt" ] && [ "$(tr -d '[:space:]' < "$BUILD_DIR/build-sha.txt")" != "$sha" ]; then
-            info "Build in $BUILD_DIR gehört zu einem anderen Commit -- baue auf dem Server."
+# Fehler nach dem Start: sagen, in welchem Zustand die Seite ist und wie es zurückgeht.
+on_error() {
+    local rc="$1" line="$2"
+    trap - ERR
+    printf '\n\033[1;31mDeploy abgebrochen (Zeile %s).\033[0m\n' "$line" >&2
+    if [ "$DOWN" = 1 ]; then
+        printf '\033[1;31mDie Seite bleibt im Wartungsmodus.\033[0m\n' >&2
+    elif [ "$SWITCHED" = 0 ]; then
+        printf 'Die Seite läuft unverändert mit dem bisherigen Stand weiter.\n' >&2
+    fi
+    if [ "$DEPLOY_MODE" = releases ]; then
+        if [ "$SWITCHED" = 0 ]; then
+            printf 'current zeigt weiter auf den bisherigen Stand (%s).\n' "${PREV:-keiner}" >&2
+            if [ -n "$REL" ]; then cd / && rm -rf "$REL"; fi
+            if [ "$DOWN" = 1 ]; then
+                printf 'Fehler beheben und erneut starten -- oder ohne Update zurück: php artisan up\n' >&2
+            fi
         else
-            use_prebuilt=1
+            printf 'current zeigt bereits auf den neuen Stand. Zurück: ./deploy/deploy.sh --rollback (vorher: %s)\n' "${PREV:-keiner}" >&2
+        fi
+    else
+        printf 'Vorheriger Commit: %s\n' "${PREV:-unbekannt}" >&2
+        if [ "$DOWN" = 1 ] || [ "$SWITCHED" = 1 ]; then
+            printf 'Rückweg: deploy/README.md „Rückroll“ (git checkout --detach %s, Abhängigkeiten, ggf. pg_restore der letzten …-deploy-Sicherung) -- oder Fehler beheben und erneut starten.\n' "${PREV:-<commit>}" >&2
         fi
     fi
-    if [ "$use_prebuilt" = 1 ]; then
+    exit "$rc"
+}
+
+# Ist BUILD_DIR ein passender Vite-Build für Commit $1?
+prebuilt_ok() {
+    local sha="$1"
+    [ -n "$BUILD_DIR" ] || return 1
+    if [ ! -f "$BUILD_DIR/manifest.json" ]; then
+        info "BUILD_DIR=$BUILD_DIR enthält keinen Vite-Build (manifest.json fehlt) -- baue auf dem Server."
+        return 1
+    fi
+    if [ -f "$BUILD_DIR/build-sha.txt" ] && [ "$(tr -d '[:space:]' < "$BUILD_DIR/build-sha.txt")" != "$sha" ]; then
+        info "Build in $BUILD_DIR gehört zu einem anderen Commit -- baue auf dem Server."
+        return 1
+    fi
+    return 0
+}
+
+# Vite-Build nach $1/public/build: aus BUILD_DIR übernehmen oder bauen ($2 = Commit).
+# $1 ist ein Ordner, den die laufende Seite nicht benutzt (Vorbereitungsordner bzw. neuer Release).
+prepare_assets() {
+    local dir="$1" sha="$2"
+    if prebuilt_ok "$sha"; then
         info "Vorgebaute Assets aus $BUILD_DIR übernehmen (kein Build auf dem Server)."
-        rm -rf "$dir/public/build.new" "$dir/public/build.old"
-        mkdir -p "$dir/public/build.new"
-        cp -R "$BUILD_DIR"/. "$dir/public/build.new/"
-        rm -f "$dir/public/build.new/build-sha.txt"
-        if [ -d "$dir/public/build" ]; then mv "$dir/public/build" "$dir/public/build.old"; fi
-        mv "$dir/public/build.new" "$dir/public/build"
-        rm -rf "$dir/public/build.old"
+        rm -rf "$dir/public/build"
+        mkdir -p "$dir/public/build"
+        cp -R "$BUILD_DIR"/. "$dir/public/build/"
+        rm -f "$dir/public/build/build-sha.txt"
     else
         info "Assets auf dem Server bauen (npm ci && npm run build)."
         (cd "$dir" && npm ci --no-audit --no-fund --silent && npm run build --silent)
@@ -140,33 +209,70 @@ reload_fpm() {
     if [ -n "${PHP_FPM_SERVICE:-}" ]; then sudo systemctl reload "$PHP_FPM_SERVICE"; fi
 }
 
+remove_staging() {
+    git worktree remove --force "$1" >/dev/null 2>&1 || true
+    rm -rf "$1"
+    git worktree prune
+}
+
 # =============================================================================
 # Modus inplace (Standard): ein Checkout, der aktualisiert wird.
 # =============================================================================
 deploy_inplace() {
-    trap 'printf "\n\033[1;31mDeploy abgebrochen (Zeile %s). Die Seite bleibt im Wartungsmodus.\033[0m\n" "$LINENO"' ERR
+    local staging="$APP_DIR/.deploy/staging" new last_sha
+    lock "$APP_DIR/.deploy/lock"
 
-    local last_sha new_sha
+    PREV="$(git rev-parse HEAD)"
+    trap 'on_error $? $LINENO' ERR
+
+    step "Code holen ($BRANCH${TARGET:+ @ $TARGET}), noch ohne umzuschalten"
+    git fetch --quiet origin "$BRANCH"
+    new="$(git rev-parse --verify --quiet "${TARGET:-origin/$BRANCH}^{commit}")" \
+        || { printf 'Commit %s nicht gefunden.\n' "${TARGET:-origin/$BRANCH}" >&2; false; }
+    if ! git merge-base --is-ancestor "$new" "origin/$BRANCH"; then
+        printf 'Commit %s liegt nicht auf %s -- abgebrochen.\n' "$new" "$BRANCH" >&2
+        false
+    fi
+    # HEAD und der lokale Branch dürfen nur vorwärts gehen (keine lokalen Commits überschreiben).
+    if ! git merge-base --is-ancestor HEAD "$new" \
+        || { git show-ref --verify --quiet "refs/heads/$BRANCH" && ! git merge-base --is-ancestor "refs/heads/$BRANCH" "$new"; }; then
+        printf 'Kein Fast-forward von %s auf %s -- abgebrochen.\n' "$PREV" "$new" >&2
+        false
+    fi
+    printf 'Vorher: %s\nNeu:    %s\n' "$(git log -1 --format='%h %s' "$PREV")" "$(git log -1 --format='%h %s' "$new")"
     last_sha="$(cat "$STATE_REL" 2>/dev/null || true)"
+
+    step "Abhängigkeiten und Assets vorbereiten (Seite läuft weiter)"
+    remove_staging "$staging"
+    git worktree add --quiet --detach "$staging" "$new"
+    # --no-scripts: package:discover läuft nach dem Umschalten im App-Verzeichnis.
+    composer install --working-dir="$staging" --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress --no-scripts
+    prepare_assets "$staging" "$new"
 
     step "Wartungsmodus an"
     php artisan down --retry=15 --refresh=15 || true
+    DOWN=1
 
     step "Sicherung vor dem Update"
-    # Migrationen sind nur vorwärts gedacht: vorher immer ein frischer Dump.
-    php artisan app:backup
+    # Migrationen sind nur vorwärts gedacht: vorher immer ein frischer Dump
+    # (nur lokal, die letzten BACKUP_KEEP_DEPLOY bleiben).
+    php artisan app:backup --deploy
 
-    step "Code holen ($BRANCH${TARGET:+ @ $TARGET})"
-    git fetch --quiet origin "$BRANCH"
-    git checkout --quiet "$BRANCH"
-    git merge --ff-only --quiet "${TARGET:-origin/$BRANCH}"
-    new_sha="$(git rev-parse HEAD)"
-
-    step "PHP-Abhängigkeiten"
-    composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
-
-    step "Assets"
-    assets "$APP_DIR" "$new_sha"
+    step "Umschalten auf $(git log -1 --format='%h' "$new")"
+    SWITCHED=1
+    # Fast-forward ist oben geprüft; -B setzt den Branch genau auf $new (auch
+    # wenn er lokal noch fehlt oder HEAD nach einem Rückroll losgelöst ist).
+    git checkout --quiet -B "$BRANCH" "$new"
+    # Vorbereitete Abhängigkeiten/Assets per Umbenennen übernehmen (Composer-
+    # Autoloader und Vite-Build sind nicht an den Ordner gebunden).
+    rm -rf vendor.old public/build.old
+    if [ -d vendor ]; then mv vendor vendor.old; fi
+    mv "$staging/vendor" vendor
+    mkdir -p public
+    if [ -d public/build ]; then mv public/build public/build.old; fi
+    mv "$staging/public/build" public/build
+    rm -rf vendor.old public/build.old
+    php artisan package:discover --ansi
 
     step "Migrationen (Owner-Rolle)"
     php artisan migrate --database=pgsql_admin --force
@@ -175,20 +281,20 @@ deploy_inplace() {
     # Seeder mit; die Seeder sind idempotent und lassen Superadmin-Korrekturen
     # stehen. Sie laufen aber mehrere Minuten -- deshalb nur bei Bedarf.
     step "Inhalte (Seeder)"
-    if seed_needed "$last_sha" "$new_sha"; then
+    if seed_needed "$last_sha" "$new"; then
         php artisan db:seed --database=pgsql_admin --force
     fi
     # Erst nach erfolgreichen Migrationen/Seedern merken -- ein vorher
     # abgebrochener Deploy spielt die Inhalte beim nächsten Lauf erneut ein.
     mkdir -p "$(dirname "$STATE_REL")"
-    printf '%s\n' "$new_sha" > "$STATE_REL"
+    printf '%s\n' "$new" > "$STATE_REL"
 
     step "Storage-Link"
     [ -e public/storage ] || php artisan storage:link
 
     step "Caches"
     php artisan optimize
-    # Queue-Worker (Sammel-Mails) laden den neuen Code.
+    # Queue-Worker laden den neuen Code.
     php artisan queue:restart
     # Kursliste der App vorwärmen (sonst ist der erste Aufruf nach dem Deploy langsam).
     php artisan app:warm-course-cache || true
@@ -196,11 +302,14 @@ deploy_inplace() {
 
     step "Wartungsmodus aus"
     php artisan up
+    DOWN=0
+
+    remove_staging "$staging"
 
     step "Go-live-Check"
     php artisan app:check-production || warn 'Hinweis: der Go-live-Check meldet offene Punkte (siehe oben).'
 
-    printf '\n\033[1;32mDeploy fertig: %s\033[0m\n' "$(git log -1 --format='%h %s')"
+    printf '\n\033[1;32mDeploy fertig: %s (vorher %s)\033[0m\n' "$(git log -1 --format='%h %s')" "$(git log -1 --format='%h' "$PREV")"
 }
 
 # =============================================================================
@@ -240,12 +349,10 @@ prune_releases() {
 }
 
 deploy_releases() {
-    local base repo shared rel="" new_sha last_sha previous url
+    local base repo shared rel new_sha last_sha previous url
     base="$(release_base)"
     repo="$base/repo.git"
     shared="$base/shared"
-    DOWN=0
-    trap 'printf "\n\033[1;31mDeploy abgebrochen (Zeile %s). Der bisherige Stand läuft unverändert weiter.\033[0m\n" "$LINENO"' ERR
 
     mkdir -p "$base/releases"
     [ -f "$shared/.env" ] || die "$shared/.env fehlt (beim Umstieg aus dem bisherigen App-Ordner kopieren, siehe deploy/README.md)."
@@ -254,10 +361,12 @@ deploy_releases() {
         "$shared/storage/framework/views" "$shared/storage/logs"
 
     # Nie zwei Deploys gleichzeitig in denselben Basisordner.
-    if command -v flock >/dev/null 2>&1; then
-        exec 9>"$base/.deploy.lock"
-        flock -n 9 || die "Ein anderer Deploy läuft gerade ($base/.deploy.lock)."
-    fi
+    lock "$base/.deploy.lock"
+
+    previous=""
+    if [ -L "$base/current" ]; then previous="$(readlink -f "$base/current")"; fi
+    PREV="${previous:+$(basename "$previous")}"
+    trap 'on_error $? $LINENO' ERR
 
     step "Code holen ($BRANCH${TARGET:+ @ $TARGET})"
     if [ ! -d "$repo" ]; then
@@ -270,22 +379,14 @@ deploy_releases() {
     git "${GIT_ARGS[@]}" fetch --quiet origin "+refs/heads/$BRANCH:refs/heads/$BRANCH"
     new_sha="$(git "${GIT_ARGS[@]}" rev-parse --verify --quiet "${TARGET:-refs/heads/$BRANCH}^{commit}")" \
         || die "Commit ${TARGET:-$BRANCH} nicht gefunden."
-    # Wie --ff-only im Modus inplace: nur Stände, die auf dem Branch liegen.
+    # Wie im Modus inplace: nur Stände, die auf dem Branch liegen.
     git "${GIT_ARGS[@]}" merge-base --is-ancestor "$new_sha" "refs/heads/$BRANCH" \
         || die "Commit $new_sha liegt nicht auf $BRANCH."
 
     rel="$base/releases/$(date +%Y%m%d%H%M%S)-${new_sha:0:12}"
     [ ! -e "$rel" ] || die "$rel existiert bereits."
-    # Abbruch vor dem Umschalten: der alte Stand läuft weiter, der halbe Ordner wird entfernt.
-    trap 'rc=$?
-        if [ "$DOWN" = 1 ]; then
-            printf "\n\033[1;31mDeploy abgebrochen (Zeile %s). Die Seite bleibt im Wartungsmodus, current zeigt weiter auf den alten Stand.\nFehler beheben und erneut starten -- oder ohne Update zurück: php artisan up\033[0m\n" "$LINENO"
-        else
-            printf "\n\033[1;31mDeploy abgebrochen (Zeile %s). Der bisherige Stand läuft unverändert weiter.\033[0m\n" "$LINENO"
-        fi
-        cd "$base" && rm -rf "$rel"
-        exit "$rc"' ERR
-
+    # Ab hier entfernt on_error den halben Ordner, solange current nicht umgeschaltet ist.
+    REL="$rel"
     mkdir -p "$rel"
     git "${GIT_ARGS[@]}" archive "$new_sha" | tar -x -C "$rel"
     printf '%s\n' "$new_sha" > "$rel/REVISION"
@@ -296,16 +397,15 @@ deploy_releases() {
     ln -s "$shared/storage" "$rel/storage"
     ln -s "$shared/.env" "$rel/.env"
     mkdir -p "$rel/bootstrap/cache"
-    previous="$(readlink -f "$base/current" 2>/dev/null || true)"
     cd "$rel"
 
-    step "PHP-Abhängigkeiten"
+    step "PHP-Abhängigkeiten (der bisherige Stand läuft weiter)"
     # vendor/ des laufenden Stands als Ausgangspunkt (spart Downloads).
     if [ -n "$previous" ] && [ -d "$previous/vendor" ]; then cp -a "$previous/vendor" "$rel/vendor"; fi
     composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
 
     step "Assets"
-    assets "$rel" "$new_sha"
+    prepare_assets "$rel" "$new_sha"
 
     step "Storage-Link"
     php artisan storage:link
@@ -320,8 +420,9 @@ deploy_releases() {
     DOWN=1
 
     step "Sicherung vor dem Update"
-    # Migrationen sind nur vorwärts gedacht: vorher immer ein frischer Dump.
-    php artisan app:backup
+    # Migrationen sind nur vorwärts gedacht: vorher immer ein frischer Dump
+    # (nur lokal, die letzten BACKUP_KEEP_DEPLOY bleiben).
+    php artisan app:backup --deploy
 
     step "Migrationen (Owner-Rolle, aus dem neuen Stand)"
     php artisan migrate --database=pgsql_admin --force
@@ -333,11 +434,11 @@ deploy_releases() {
 
     step "Umschalten: current -> $(basename "$rel")"
     switch_current "$base" "$rel"
-    trap 'printf "\n\033[1;31mDeploy abgebrochen (Zeile %s) nach dem Umschalten auf den neuen Stand.\033[0m\n" "$LINENO"' ERR
+    SWITCHED=1
     mkdir -p "$(dirname "$shared/$STATE_REL")"
     printf '%s\n' "$new_sha" > "$shared/$STATE_REL"
-    # Queue-Worker (Sammel-Mails) beenden sich und starten über
-    # <basis>/current/artisan mit dem neuen Code (supervisor).
+    # Queue-Worker beenden sich und starten über <basis>/current/artisan mit
+    # dem neuen Code (supervisor).
     php artisan queue:restart
     php artisan app:warm-course-cache || true
     reload_fpm
@@ -352,12 +453,14 @@ deploy_releases() {
     step "Go-live-Check"
     php artisan app:check-production || warn 'Hinweis: der Go-live-Check meldet offene Punkte (siehe oben).'
 
-    printf '\n\033[1;32mDeploy fertig: %s\n%s\033[0m\n' "$(git "${GIT_ARGS[@]}" log -1 --format='%h %s' "$new_sha")" "current -> $rel"
+    printf '\n\033[1;32mDeploy fertig: %s (vorher %s)\n%s\033[0m\n' \
+        "$(git "${GIT_ARGS[@]}" log -1 --format='%h %s' "$new_sha")" "${PREV:-keiner}" "current -> $rel"
 }
 
 rollback_releases() {
     local base active previous sha
     base="$(release_base)"
+    lock "$base/.deploy.lock"
     active="$(readlink -f "$base/current" 2>/dev/null || true)"
     if [ -z "$active" ] || [ ! -d "$active" ]; then die "$base/current zeigt auf keinen Stand."; fi
     previous="$(find "$base/releases" -mindepth 1 -maxdepth 1 -type d | sort | awk -v cur="$active" '$0 == cur { print prev; exit } { prev = $0 }')"
@@ -381,8 +484,4 @@ rollback_releases() {
     info "Der zurückgenommene Stand bleibt unter $active liegen (wird beim nächsten Deploy ggf. aufgeräumt)."
 }
 
-if [ "$DEPLOY_MODE" = releases ]; then
-    if [ "$ROLLBACK" = 1 ]; then rollback_releases; else deploy_releases; fi
-else
-    deploy_inplace
-fi
+main "$@"; exit $?

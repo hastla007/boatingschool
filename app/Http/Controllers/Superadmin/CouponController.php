@@ -13,6 +13,7 @@ use App\Support\GermanTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -142,7 +143,7 @@ class CouponController extends Controller
             // greift dagegen immer außer bei select_all=1.
             'ids' => ['required_unless:select_all,1', 'array'],
             'ids.*' => ['uuid'],
-            'tenant_id' => ['nullable', 'string'],
+            'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
             'status' => ['nullable', 'string'],
             'search' => ['nullable', 'string'],
         ]);
@@ -163,7 +164,7 @@ class CouponController extends Controller
         AuditLog::record($validated['tenant_id'] ?? null, $request->user()->id, 'superadmin.coupon.export', 'coupon', null, null, [
             'count' => $codes->count(),
             'select_all' => $request->boolean('select_all'),
-            'filters' => $this->filters($request),
+            'filters' => $this->auditFilters($request),
         ]);
 
         $filename = 'coupon-codes-'.now()->format('Y-m-d_His').'.txt';
@@ -185,7 +186,7 @@ class CouponController extends Controller
             'select_all' => ['nullable', 'boolean'],
             'ids' => ['required_unless:select_all,1', 'array'],
             'ids.*' => ['uuid'],
-            'tenant_id' => ['nullable', 'string'],
+            'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
             'status' => ['nullable', 'string'],
             'search' => ['nullable', 'string'],
         ]);
@@ -194,14 +195,20 @@ class CouponController extends Controller
             ? $this->filteredCoupons($this->filters($request))
             : Coupon::whereIn('id', $validated['ids']);
 
-        $count = $query->whereNull('redeemed_at')->whereNull('voided_at')
-            ->update(['voided_at' => now(), 'voided_by_user_id' => $request->user()->id]);
+        // QA-D-8: Sperre und Protokolleintrag gemeinsam -- scheitert der
+        // Eintrag, bleibt auch keine Sperre ohne Nachweis zurück.
+        $count = DB::transaction(function () use ($query, $request, $validated) {
+            $count = $query->whereNull('redeemed_at')->whereNull('voided_at')
+                ->update(['voided_at' => now(), 'voided_by_user_id' => $request->user()->id]);
 
-        AuditLog::record($validated['tenant_id'] ?? null, $request->user()->id, 'superadmin.coupon.void', 'coupon', null, null, [
-            'count' => $count,
-            'select_all' => $request->boolean('select_all'),
-            'filters' => $this->filters($request),
-        ]);
+            AuditLog::record($validated['tenant_id'] ?? null, $request->user()->id, 'superadmin.coupon.void', 'coupon', null, null, [
+                'count' => $count,
+                'select_all' => $request->boolean('select_all'),
+                'filters' => $this->auditFilters($request),
+            ]);
+
+            return $count;
+        });
 
         return back()->with('status', $count === 1 ? '1 Code gesperrt.' : "{$count} Codes gesperrt.");
     }
@@ -216,6 +223,26 @@ class CouponController extends Controller
     private function filters(Request $request): array
     {
         return array_filter($request->only(['tenant_id', 'status', 'search']), 'is_string');
+    }
+
+    /**
+     * QA-D-4: Filter fürs Protokoll -- vom Suchbegriff (z. B. ein Name)
+     * nur, dass gesucht wurde.
+     *
+     * @return array{tenant_id?: string, status?: string, search?: true}
+     */
+    private function auditFilters(Request $request): array
+    {
+        $filters = $this->filters($request);
+        if (isset($filters['search'])) {
+            if (trim($filters['search']) === '') {
+                unset($filters['search']);
+            } else {
+                $filters['search'] = true;
+            }
+        }
+
+        return $filters;
     }
 
     /** @param  array{tenant_id?: string, status?: string, search?: string}  $filters */

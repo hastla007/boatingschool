@@ -50,16 +50,16 @@ class ExamApiTest extends MobileApiTestCase
         $right = $answers->firstWhere('is_correct', true);
         $wrong = $answers->firstWhere('is_correct', false);
 
-        $saved = $this->api('PUT', "/exams/{$examId}/answers/{$q1['id']}", $token, $tenant, ['selected_answer_ids' => [$right->id]])->assertOk()
+        $saved = $this->api('PUT', "/exams/{$examId}/answers/{$q1['id']}", $token, $tenant, ['selected_answer_ids' => [$this->answerToken($user, $right->id)]])->assertOk()
             ->assertJsonPath('data.saved', true)->assertJsonPath('data.answered_count', 1);
         $this->assertStringNotContainsString('"correct"', $saved->getContent());
         // Dieselbe Antwort noch einmal (Netzabbruch): harmlos. Eine andere: festgeschrieben.
-        $this->api('PUT', "/exams/{$examId}/answers/{$q1['id']}", $token, $tenant, ['selected_answer_ids' => [$right->id]])->assertOk();
-        $this->api('PUT', "/exams/{$examId}/answers/{$q1['id']}", $token, $tenant, ['selected_answer_ids' => [$wrong->id]])
+        $this->api('PUT', "/exams/{$examId}/answers/{$q1['id']}", $token, $tenant, ['selected_answer_ids' => [$this->answerToken($user, $right->id)]])->assertOk();
+        $this->api('PUT', "/exams/{$examId}/answers/{$q1['id']}", $token, $tenant, ['selected_answer_ids' => [$this->answerToken($user, $wrong->id)]])
             ->assertStatus(409)->assertJsonPath('code', 'EXAM_ANSWER_LOCKED');
         // Antwort einer anderen Frage: unbekannt.
         $q2 = $exam->json('data.questions.1');
-        $this->api('PUT', "/exams/{$examId}/answers/{$q2['id']}", $token, $tenant, ['selected_answer_ids' => [$right->id]])
+        $this->api('PUT', "/exams/{$examId}/answers/{$q2['id']}", $token, $tenant, ['selected_answer_ids' => [$this->answerToken($user, $right->id)]])
             ->assertStatus(422)->assertJsonPath('code', 'VALIDATION_FAILED');
         $this->api('PUT', "/exams/{$examId}/answers/{$q2['id']}", $token, $tenant, ['selected_answer_ids' => []])->assertStatus(422);
 
@@ -71,7 +71,7 @@ class ExamApiTest extends MobileApiTestCase
 
         $result = $this->api('POST', "/exams/{$examId}/submit", $token, $tenant)->assertOk()
             ->assertJsonPath('data.status', 'evaluated')->assertJsonPath('data.correct_count', 1)->assertJsonPath('data.passed', false);
-        $this->assertSame([$right->id], $result->json('data.questions.0.solution.correct_answer_ids'));
+        $this->assertSame([$this->answerToken($user, $right->id)], $result->json('data.questions.0.solution.correct_answer_ids'));
         $this->assertTrue($result->json('data.questions.0.correct'));
         $this->assertNotEmpty($result->json('data.by_topic'));
         $this->assertSame($result->json('data.question_count') - 1, $result->json('data.unanswered_count'));
@@ -79,7 +79,7 @@ class ExamApiTest extends MobileApiTestCase
         // Abgegeben ist abgegeben.
         $this->api('POST', "/exams/{$examId}/submit", $token, $tenant)->assertOk()->assertJsonPath('data.correct_count', 1);
         $this->api('GET', "/exams/{$examId}/result", $token, $tenant)->assertOk()->assertJsonPath('data.exam_id', $examId);
-        $this->api('PUT', "/exams/{$examId}/answers/{$q2['id']}", $token, $tenant, ['selected_answer_ids' => [$right->id]])
+        $this->api('PUT', "/exams/{$examId}/answers/{$q2['id']}", $token, $tenant, ['selected_answer_ids' => [$this->answerToken($user, $right->id)]])
             ->assertStatus(409)->assertJsonPath('code', 'EXAM_ALREADY_SUBMITTED');
         $this->assertSame($examId, $this->api('GET', "/courses/{$course->id}/exams", $token, $tenant)->json('data.0.last_result.exam_id'));
     }
@@ -98,7 +98,7 @@ class ExamApiTest extends MobileApiTestCase
 
         $q1 = $exam['questions'][0];
         $answer = $this->onAdmin(fn () => ContentAnswer::where('revision_id', $q1['revision_id'])->value('id'));
-        $this->api('PUT', "/exams/{$exam['exam_id']}/answers/{$q1['id']}", $token, $tenant, ['selected_answer_ids' => [$answer]])
+        $this->api('PUT', "/exams/{$exam['exam_id']}/answers/{$q1['id']}", $token, $tenant, ['selected_answer_ids' => [$this->answerToken($user, $answer)]])
             ->assertStatus(410)->assertJsonPath('code', 'EXAM_EXPIRED');
         $this->api('GET', "/exams/{$exam['exam_id']}", $token, $tenant)->assertOk()->assertJsonPath('data.status', 'evaluated');
         $this->api('GET', "/exams/{$exam['exam_id']}/result", $token, $tenant)->assertOk()->assertJsonPath('data.correct_count', 0);

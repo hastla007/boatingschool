@@ -18,11 +18,24 @@
 	}
 }
 
+# Nur die App selbst (public/index.php) läuft über PHP-FPM. Jede andere
+# .php-Datei (auch mit Pfad dahinter, z. B. /storage/x.php/y) -> 404, und
+# /storage (Uploads) sowie /build gehen nie an PHP.
+(nur_index_php) {
+	@andere_php {
+		path_regexp (?i)\.php(/|$)
+		not path /index.php /index.php/*
+	}
+	respond @andere_php 404
+	@app not path /storage/* /build/*
+	php_fastcgi @app unix//run/php/php8.3-fpm.sock
+}
+
 # Interner Prüf-Endpunkt (nur lokal erreichbar).
 http://127.0.0.1:9180 {
 	bind 127.0.0.1
 	root * /var/www/boatingschool/public
-	php_fastcgi unix//run/php/php8.3-fpm.sock
+	import nur_index_php
 }
 
 # Alle Domains: zentrale Domain, Schul-Subdomains, eigene Domains.
@@ -33,18 +46,43 @@ https:// {
 	root * /var/www/boatingschool/public
 	encode zstd gzip
 
+	# Kein MIME-Sniffing, auch für Uploads und Assets (die App setzt den
+	# Header nur für ihre eigenen Antworten). defer: nach PHP-FPM setzen, nicht doppelt.
+	header {
+		X-Content-Type-Options nosniff
+		defer
+	}
+
 	# Gebaute Assets dürfen lange gecacht werden (Dateinamen mit Hash).
 	@build path /build/*
 	header @build Cache-Control "public, max-age=31536000, immutable"
 
-	php_fastcgi unix//run/php/php8.3-fpm.sock
+	# Uploads (Logos, Bilder, PDFs) direkt aufgerufen: nichts ausführen
+	# (z. B. Skript in einer SVG-Datei).
+	@storage path /storage/*
+	header @storage Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+
+	import nur_index_php
 	file_server
 
 	request_body {
 		max_size 25MB
 	}
+	# Zugriffslog: 14 Tage, ohne Geheimnisse aus Adressen (Reset-Token,
+	# Signaturen, E-Mail-Adressen, Codes) und ohne Referer.
 	log {
-		output file /var/log/caddy/boatingschool.log
+		output file /var/log/caddy/boatingschool.log {
+			roll_size 50MiB
+			roll_keep 14
+			roll_keep_for 336h
+		}
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "(?i)(/(?:reset-password|impersonate|groups/join)/)[^/?]+|([?&](?:email|signature|code|token)=)[^&]*" "${1}${2}REDACTED"
+				request>headers>Referer delete
+			}
+		}
 	}
 }
 

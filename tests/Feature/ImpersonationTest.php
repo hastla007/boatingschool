@@ -39,9 +39,20 @@ class ImpersonationTest extends TestCase
         return $tenant;
     }
 
+    /**
+     * Protokollierte Aktionen als sortierte Menge. Absichtlich ohne
+     * orderBy('created_at'): audit_log hat keine monotone Spalte (id ist eine
+     * zufällige UUID), und bei gleichem Zeitstempel (eingefrorene Zeit)
+     * ist die Reihenfolge undefiniert -- im vollen Lauf kam so einmal
+     * stop, start, blocked zurück. Die Reihenfolge prüfen die Tests über
+     * Zwischenstände nach jedem Schritt.
+     */
     private function actions(User $user): array
     {
-        return $this->onAdmin(fn () => AuditLog::where('entity_id', $user->id)->where('action', 'like', 'superadmin.impersonate.%')->orderBy('created_at')->pluck('action')->all());
+        $actions = $this->onAdmin(fn () => AuditLog::where('entity_id', $user->id)->where('action', 'like', 'superadmin.impersonate.%')->pluck('action')->all());
+        sort($actions);
+
+        return $actions;
     }
 
     public function test_superadmin_views_the_platform_as_a_learner_read_only_and_ends_it(): void
@@ -64,6 +75,7 @@ class ImpersonationTest extends TestCase
         $this->assertSame($superadmin->id, session(Impersonation::SESSION_KEY)['impersonator_id']);
         // Die Support-Ansicht ist keine Anmeldung der Person selbst (Löschfrist für inaktive Konten).
         $this->assertNull($this->onAdmin(fn () => User::find($learner->id))->last_login_at);
+        $this->assertSame(['superadmin.impersonate.start'], $this->actions($learner));
 
         $page = $this->get("{$base}/dashboard")->assertOk();
         $page->assertSee('Support-Ansicht:')->assertSee($learner->email)->assertSee('Support-Ansicht beenden');
@@ -71,13 +83,14 @@ class ImpersonationTest extends TestCase
         // Nur lesend: Änderungen werden abgelehnt und protokolliert.
         $this->patch("{$base}/profile", ['name' => 'Geändert', 'email' => $learner->email])->assertSessionHas('status', 'In der Support-Ansicht sind Änderungen gesperrt.');
         $this->assertNotSame('Geändert', $this->onAdmin(fn () => User::find($learner->id))->display_name);
+        $this->assertSame(['superadmin.impersonate.blocked', 'superadmin.impersonate.start'], $this->actions($learner));
 
         // Der Link gilt nur einmal.
         $this->get($link)->assertForbidden();
 
         $this->post("{$base}/impersonate/stop")->assertOk()->assertSee('Support-Ansicht beendet')->assertSee("{$this->central}/superadmin/users/{$learner->id}");
         $this->assertGuest();
-        $this->assertSame(['superadmin.impersonate.start', 'superadmin.impersonate.blocked', 'superadmin.impersonate.stop'], $this->actions($learner));
+        $this->assertSame(['superadmin.impersonate.blocked', 'superadmin.impersonate.start', 'superadmin.impersonate.stop'], $this->actions($learner));
     }
 
     public function test_superadmins_inactive_accounts_and_foreign_schools_are_refused(): void

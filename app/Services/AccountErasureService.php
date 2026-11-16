@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\ApiAccountDeletionRequest;
 use App\Models\ApiDataExport;
+use App\Models\ApiMobileWebSession;
 use App\Models\Attempt;
 use App\Models\AuditLog;
 use App\Models\Entitlement;
@@ -10,6 +12,8 @@ use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
 use App\Models\InstructorCourse;
+use App\Models\LearningGroup;
+use App\Models\LearningGroupMember;
 use App\Models\NavigationProgress;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
@@ -25,6 +29,7 @@ use App\Models\VideoProgress;
 use App\Models\WillkommensboxOrder;
 use App\Support\OwnerConnection;
 use App\Support\TenantContext;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -79,8 +84,8 @@ class AccountErasureService
             foreach ($this->tenantScopedModels() as $model) {
                 $model::where('tenant_id', $tenant->id)->where('user_id', $user->id)->delete();
             }
-            // Gespeicherte App-Antworten (Idempotenz) enthalten Lerndaten dieser Schule.
-            DB::table('api_idempotency_key')->where('user_id', $user->id)->delete();
+            $this->leaveLearningGroups($tenant, $user);
+            $this->detachRedeemedCoupons($tenant, $user);
 
             $invitationIds = $this->deleteInvitationsFor($tenant, $user);
             $this->pseudonymizeAuditLogFor($tenant, $user, $invitationIds, $willkommensboxOrderIds, $praxisFormSubmissionIds, $praxisExamAppointmentIds);
@@ -110,7 +115,15 @@ class AccountErasureService
             fn () => TenantUser::withoutGlobalScopes()->where('user_id', $user->id)->where('tenant_id', '!=', $tenant->id)->exists()
         );
 
+        // QA-D-6: verknüpfte Shopkonten bei dieser Schule (Kontaktdaten aus dem Shop).
+        $this->revokeShopAccountsAt($tenant, $user);
+
         if (! $hasRemainingMemberships) {
+            // QA-D-6: gespeicherte App-Antworten (Idempotenz) haben keine
+            // tenant_id -- nur mit der letzten Mitgliedschaft löschen, sonst
+            // träfe es auch die Antworten der übrigen Schulen.
+            DB::table('api_idempotency_key')->where('user_id', $user->id)->delete();
+
             // Sicherheitsreview M7 (Folgefehler): Postgres lässt UPDATE/DELETE
             // nur auf Zeilen zu, die auch über eine SELECT-Policy sichtbar
             // sind -- die eigene app_user_delete_unrestricted-Policy (USING
@@ -161,11 +174,28 @@ class AccountErasureService
         $this->forgetOpenInvitations($user);
 
         if ($tenantIds === []) {
-            $this->onAdminConnection(function () use ($user) {
-                AuditLog::where('entity_type', 'app_user')->where('entity_id', $user->id)->update(['before_data' => null, 'after_data' => null]);
-                $this->deleteAccountEntirely($user);
-            });
+            $this->eraseOrphanAccount($user);
         }
+    }
+
+    /**
+     * Konto ohne (weitere) Mitgliedschaft löschen -- gemeinsamer Lösch-Pfad
+     * für deleteAccount() und das Vertragsende einer Schule
+     * (TenantOffboardingService, QA-D-5): plattformweites Protokoll
+     * (Kontoeinträge, E-Mail bei der Schul-Anlage), Sitzungen/Tokens,
+     * Shopkonten samt Shop-Ereignissen, dann das Konto. Läuft auf der
+     * Owner-Verbindung; in einer dort schon offenen Transaktion (Offboarding)
+     * dieselbe Postgres-Session.
+     */
+    public function eraseOrphanAccount(User $user, bool $auditAlreadyCleared = false): void
+    {
+        $this->onAdminConnection(function () use ($user, $auditAlreadyCleared) {
+            if (! $auditAlreadyCleared) {
+                $this->forgetOrphanAuditData(collect([$user]));
+            }
+            DB::table('api_idempotency_key')->where('user_id', $user->id)->delete();
+            $this->deleteAccountEntirely($user);
+        });
     }
 
     /**
@@ -183,6 +213,9 @@ class AccountErasureService
                 AuditLog::where('entity_type', 'tenant_invitation')->whereIn('entity_id', $invitationIds)->update(['before_data' => null, 'after_data' => null]);
                 TenantInvitation::withoutGlobalScopes()->whereIn('id', $invitationIds)->delete();
             }
+            // Offene Einladungen in Lerngruppen (enthalten die Adresse).
+            LearningGroupMember::withoutGlobalScopes()->where('status', 'invited')->whereRaw('lower(email) = ?', [mb_strtolower($user->email)])
+                ->when($exceptTenantId, fn ($q) => $q->where('tenant_id', '!=', $exceptTenantId))->delete();
         });
     }
 
@@ -209,6 +242,9 @@ class AccountErasureService
             NavigationProgress::class,
             // Datenexporte aus der App (Datei räumt app:prune-personal-data nach Ablauf weg).
             ApiDataExport::class,
+            // Offener Löschantrag und Einmal-Codes der Webansicht aus der App.
+            ApiAccountDeletionRequest::class,
+            ApiMobileWebSession::class,
             // Bug-Review (Funk-Training fehlt in Löschung): answers enthält
             // freie Mitschriften/Eingaben des Lerners (siehe Migration
             // 2024_02_01_000479) -- die Tabelle kam nach dieser Liste hinzu
@@ -222,6 +258,21 @@ class AccountErasureService
             // Kaskadiert praxis_exam_appointment weg (ON DELETE CASCADE).
             PraxisFormSubmission::class,
         ];
+    }
+
+    /**
+     * Lerngruppen dieser Schule: Mitgliedschaften und offene Einladungen an
+     * die Adresse verschwinden (die Gruppenzugänge selbst löscht
+     * tenantScopedModels()), der Platz wird frei. Verwaltet die Person
+     * Gruppen, bleiben diese ohne Verwalter bestehen -- die übrigen
+     * Mitglieder behalten ihren bezahlten Zugang.
+     */
+    private function leaveLearningGroups(Tenant $tenant, User $user): void
+    {
+        LearningGroupMember::where('tenant_id', $tenant->id)
+            ->where(fn ($q) => $q->where('user_id', $user->id)->orWhereRaw('lower(email) = ?', [mb_strtolower($user->email)]))
+            ->delete();
+        LearningGroup::where('tenant_id', $tenant->id)->where('owner_user_id', $user->id)->update(['owner_user_id' => null]);
     }
 
     /**
@@ -334,13 +385,90 @@ class AccountErasureService
             ->where(fn ($query) => $query->whereNull('tenant_id')->orWhere('tenant_id', '!=', $leftTenant->id))
             ->update(['before_data' => null, 'after_data' => null]));
 
-        // Bug-Review (E-Mail im Protokoll der Schul-Anlage): beim Anlegen
-        // einer Bootsschule protokolliert Superadmin\TenantController die
-        // E-Mail des Inhabers (entity_type "tenant") -- dieser Eintrag
-        // betrifft nicht das Nutzerkonto und blieb deshalb stehen.
-        $this->onAdminConnection(fn () => AuditLog::where('action', 'superadmin.tenant.create')
+        $this->onAdminConnection(fn () => $this->forgetAdminEmailInTenantCreateEntries($user));
+    }
+
+    /**
+     * Bug-Review (E-Mail im Protokoll der Schul-Anlage): beim Anlegen
+     * einer Bootsschule protokolliert Superadmin\TenantController die
+     * E-Mail des Inhabers (entity_type "tenant") -- dieser Eintrag
+     * betrifft nicht das Nutzerkonto und blieb deshalb stehen.
+     */
+    /**
+     * Protokolldaten zu Konten, die gelöscht werden: Einträge zum Konto selbst
+     * leeren und die Adresse aus superadmin.tenant.create entfernen -- je
+     * Block eine Abfrage statt einer je Konto (Audit ARC-3, Offboarding).
+     *
+     * @param  Collection<int, User>  $users
+     */
+    public function forgetOrphanAuditData(Collection $users): void
+    {
+        $this->onAdminConnection(function () use ($users) {
+            foreach ($users->chunk(1000) as $chunk) {
+                AuditLog::where('entity_type', 'app_user')->whereIn('entity_id', $chunk->pluck('id')->all())
+                    ->update(['before_data' => null, 'after_data' => null]);
+                $emails = $chunk->pluck('email')->filter()->values()->all();
+                if ($emails !== []) {
+                    AuditLog::where('action', 'superadmin.tenant.create')
+                        ->whereIn(DB::raw("after_data->>'admin_email'"), $emails)
+                        ->update(['after_data' => DB::raw("after_data - 'admin_email'")]);
+                }
+            }
+        });
+    }
+
+    private function forgetAdminEmailInTenantCreateEntries(User $user): void
+    {
+        AuditLog::where('action', 'superadmin.tenant.create')
             ->whereRaw("after_data->>'admin_email' = ?", [$user->email])
-            ->update(['after_data' => DB::raw("after_data - 'admin_email'")]));
+            ->update(['after_data' => DB::raw("after_data - 'admin_email'")]);
+    }
+
+    /**
+     * QA-D-6: von der Person bei dieser Schule eingelöste Codes bleiben als
+     * Bestellnachweis stehen, verweisen aber nicht mehr auf das Konto.
+     */
+    private function detachRedeemedCoupons(Tenant $tenant, User $user): void
+    {
+        DB::table('coupon')->where('redeemed_tenant_id', $tenant->id)->where('redeemed_by_user_id', $user->id)
+            ->update(['redeemed_by_user_id' => null]);
+    }
+
+    /**
+     * QA-D-6: mit der Person verknüpfte Shopkonten dieser Schule wie in
+     * deleteAccountEntirely() anonymisieren und widerrufen -- auch wenn das
+     * Konto bei anderen Schulen weiterbesteht. Owner-Verbindung (die App-Rolle
+     * darf nur den Status ändern); die Request-Transaktion hat diese Zeilen
+     * nicht angefasst, es entsteht also kein Warten über zwei Sitzungen.
+     */
+    private function revokeShopAccountsAt(Tenant $tenant, User $user): void
+    {
+        $commerce = DB::connection('pgsql_admin');
+        $shopAccountIds = $commerce->table('commerce_shop_account')
+            ->where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('id');
+        $this->anonymizeShopAccounts($shopAccountIds->all());
+    }
+
+    /**
+     * Zuerst die Ereignisse (Owner-Verbindung), dann die Konten -- in dieser
+     * Reihenfolge kann kein Warten über zwei Sitzungen hinweg entstehen.
+     *
+     * @param  list<string>  $shopAccountIds
+     */
+    private function anonymizeShopAccounts(array $shopAccountIds): void
+    {
+        if ($shopAccountIds === []) {
+            return;
+        }
+        $commerce = DB::connection('pgsql_admin');
+        $commerce->table('commerce_event')->whereIn('shop_account_id', $shopAccountIds)
+            ->update(['payload' => DB::raw("payload - 'email' - 'first_name' - 'last_name'")]);
+        foreach ($shopAccountIds as $shopAccountId) {
+            $commerce->table('commerce_shop_account')->where('id', $shopAccountId)->update([
+                'email' => 'geloescht-'.$shopAccountId.'@invalid.invalid', 'contact_name' => null, 'company_name' => null, 'vat_id' => null,
+                'user_id' => null, 'status' => DB::raw("CASE WHEN status = 'rejected' THEN 'rejected' ELSE 'revoked' END"), 'revoked_at' => now(),
+            ]);
+        }
     }
 
     private function deleteAccountEntirely(User $user): void
@@ -351,6 +479,9 @@ class AccountErasureService
         DB::table('sessions')->where('user_id', $user->id)->delete();
         DB::table('password_reset_tokens')->where('email', $user->email)->delete();
         DB::table('account_setup_tokens')->where('email', $user->email)->delete();
+        // App-Einstellungen gelten fürs Konto (nicht je Schule); der Fremdschlüssel
+        // kaskadiert zwar, gelöscht wird aber ausdrücklich wie bei den Sitzungen.
+        DB::table('api_user_setting')->where('user_id', $user->id)->delete();
 
         // Sicherheitsreview M5 (Folgefehler): $user->delete() würde die von
         // Eloquent beim Hydrieren/Erstellen fest zugeordnete Verbindung des
@@ -379,18 +510,7 @@ class AccountErasureService
                 ->orWhere(fn ($e) => $e->whereNull('user_id')->whereIn('status', ['pending_review', 'awaiting_link'])
                     ->whereRaw('lower(email) = ?', [mb_strtolower($user->email)])))
             ->pluck('id');
-        if ($shopAccountIds->isNotEmpty()) {
-            // Zuerst die Ereignisse (Owner-Verbindung), dann die Konten -- in dieser
-            // Reihenfolge kann kein Warten über zwei Sitzungen hinweg entstehen.
-            $commerce->table('commerce_event')->whereIn('shop_account_id', $shopAccountIds)
-                ->update(['payload' => DB::raw("payload - 'email' - 'first_name' - 'last_name'")]);
-            foreach ($shopAccountIds as $shopAccountId) {
-                $commerce->table('commerce_shop_account')->where('id', $shopAccountId)->update([
-                    'email' => 'geloescht-'.$shopAccountId.'@invalid.invalid', 'contact_name' => null, 'company_name' => null, 'vat_id' => null,
-                    'user_id' => null, 'status' => DB::raw("CASE WHEN status = 'rejected' THEN 'rejected' ELSE 'revoked' END"), 'revoked_at' => now(),
-                ]);
-            }
-        }
+        $this->anonymizeShopAccounts($shopAccountIds->all());
 
         DB::table('app_user')->where('id', $user->id)->delete();
     }
