@@ -8,6 +8,9 @@
  * Bei der Plattform angemeldet wird ein neues Konto erst, wenn die Adresse
  * über den Link aus der Bestätigungsmail bestätigt ist. Vom Provisionierungs-
  * Endpunkt angelegte Konten gelten als bestätigt.
+ *
+ * Ausdrücklicher Abgleich (ohne Prüfsummen-Vergleich): Knopf im Nutzerprofil,
+ * Sammelaktion in der Nutzerliste und `wp bs-connector resync` (BS_CLI).
  */
 defined('ABSPATH') || exit;
 
@@ -29,6 +32,9 @@ final class BS_Accounts
     /** Höchstens eine frische Abfrage je Kunde in diesem Abstand (Sekunden). */
     const STATUS_FRESH_INTERVAL = 10;
 
+    /** admin-post-Aktion, Nonce-Präfix und Sammelaktion für „Konto neu abgleichen“. */
+    const RESYNC_ACTION = 'bs_connector_account_resync';
+
     public static function init(): void
     {
         add_action('woocommerce_register_form', [__CLASS__, 'registration_fields']);
@@ -40,7 +46,15 @@ final class BS_Accounts
         // dieser Hook sieht den gespeicherten Stand.
         add_action('woocommerce_update_customer', [__CLASS__, 'queue_update']);
         add_action('delete_user', [__CLASS__, 'queue_deactivate']);
-        add_action('bs_connector_sync_account', [__CLASS__, 'sync_account'], 10, 3);
+        add_action('bs_connector_sync_account', [__CLASS__, 'sync_account'], 10, 4);
+
+        // Backend: Konto ausdrücklich neu abgleichen (nur Administratoren).
+        add_action('show_user_profile', [__CLASS__, 'render_resync_profile']);
+        add_action('edit_user_profile', [__CLASS__, 'render_resync_profile']);
+        add_action('admin_post_'.self::RESYNC_ACTION, [__CLASS__, 'handle_admin_resync']);
+        add_filter('bulk_actions-users', [__CLASS__, 'resync_bulk_action']);
+        add_filter('handle_bulk_actions-users', [__CLASS__, 'handle_resync_bulk_action'], 10, 3);
+        add_action('admin_notices', [__CLASS__, 'resync_notices']);
 
         add_action('init', [__CLASS__, 'add_endpoint']);
         add_filter('woocommerce_account_menu_items', [__CLASS__, 'menu_item']);
@@ -278,13 +292,40 @@ final class BS_Accounts
         }
     }
 
-    private static function enqueue(string $action, int $customer_id): void
+    private static function enqueue(string $action, int $customer_id, bool $force = false): void
     {
+        // force nur mitgeben, wenn gesetzt: gewöhnliche Aufgaben behalten ihre Argumente.
+        $args = $force ? [$action, $customer_id, 1, true] : [$action, $customer_id];
         if (function_exists('as_enqueue_async_action')) {
-            as_enqueue_async_action('bs_connector_sync_account', [$action, $customer_id], 'bs-connector');
+            if ($force && function_exists('as_has_scheduled_action') && as_has_scheduled_action('bs_connector_sync_account', $args, 'bs-connector')) {
+                return; // schon eingeplant (z. B. Knopf zweimal geklickt)
+            }
+            as_enqueue_async_action('bs_connector_sync_account', $args, 'bs-connector');
         } else {
-            self::sync_account($action, $customer_id);
+            self::sync_account($action, $customer_id, 1, $force);
         }
+    }
+
+    /** Beim Shop registriertes (und damit ggf. verknüpftes) Konto? */
+    public static function is_registered(int $customer_id): bool
+    {
+        return (bool) get_user_meta($customer_id, '_bs_registered', true);
+    }
+
+    /**
+     * Ausdrücklichen Abgleich einplanen (PATCH /accounts/{id} mit force, also
+     * ohne Prüfsummen-Vergleich), z. B. nachdem das Konto auf der Plattform
+     * geändert oder zurückgesetzt wurde. false bei nicht registrierten Konten.
+     */
+    public static function queue_resync(int $customer_id): bool
+    {
+        if (! self::is_registered($customer_id) || ! get_userdata($customer_id)) {
+            return false;
+        }
+        self::enqueue('update', $customer_id, true);
+        BS_Log::info('Kontoabgleich ausdrücklich eingeplant', ['customer_id' => $customer_id]);
+
+        return true;
     }
 
     /**
@@ -292,19 +333,25 @@ final class BS_Accounts
      *
      * Ein Update, dessen Daten schon erfolgreich abgeglichen sind, entfällt auch
      * hier (z. B. zweimal eingeplant, weil in einer Anfrage profile_update und
-     * woocommerce_customer_save_address feuern). Die Prüfsumme wird erst nach
+     * woocommerce_customer_save_address feuern) -- außer mit $force (ausdrücklicher
+     * Abgleich; gilt auch für dessen Wiederholungen). Die Prüfsumme wird erst nach
      * erfolgreicher Antwort gesetzt; nach einem Fehler sendet der nächste
      * Versuch also wieder.
+     *
+     * Ergebnis (für WP-CLI): result = synced, skipped, retry (Wiederholung
+     * eingeplant) oder failed (Alarm gesendet), dazu HTTP-Status und Fehler.
+     *
+     * @return array{result: string, status: ?int, error: ?string}
      */
-    public static function sync_account(string $action, int $customer_id, int $attempt = 1): void
+    public static function sync_account(string $action, int $customer_id, int $attempt = 1, bool $force = false): array
     {
         $user = get_userdata($customer_id);
         if (! $user && $action !== 'deactivate') {
-            return;
+            return ['result' => 'skipped', 'status' => null, 'error' => 'Nutzer nicht gefunden'];
         }
         $data = $user ? self::account_payload($customer_id, $user) : [];
-        if ($action === 'update' && self::already_synced($customer_id, $data)) {
-            return;
+        if ($action === 'update' && ! $force && self::already_synced($customer_id, $data)) {
+            return ['result' => 'skipped', 'status' => null, 'error' => null];
         }
 
         if ($action === 'register') {
@@ -325,18 +372,120 @@ final class BS_Accounts
             }
             self::forget_status($customer_id);
 
-            return;
+            return ['result' => 'synced', 'status' => (int) $response['status'], 'error' => null];
         }
+        $error = (string) ($response['error'] ?? ('HTTP '.$response['status']));
 
         if ($attempt < 3 && function_exists('as_schedule_single_action')) {
-            as_schedule_single_action(time() + 5 * MINUTE_IN_SECONDS, 'bs_connector_sync_account', [$action, $customer_id, $attempt + 1], 'bs-connector');
+            $args = [$action, $customer_id, $attempt + 1];
+            if ($force) {
+                $args[] = true;
+            }
+            as_schedule_single_action(time() + 5 * MINUTE_IN_SECONDS, 'bs_connector_sync_account', $args, 'bs-connector');
 
-            return;
+            return ['result' => 'retry', 'status' => $response['status'], 'error' => $error];
         }
         BS_Orders::alert(
             __('Kontenabgleich mit der Bootsschul-Plattform fehlgeschlagen', 'bs-connector'),
-            sprintf('Kunde #%d, Aktion %s: %s', $customer_id, $action, (string) $response['error'])
+            sprintf('Kunde #%d, Aktion %s: %s', $customer_id, $action, $error)
         );
+
+        return ['result' => 'failed', 'status' => $response['status'], 'error' => $error];
+    }
+
+    // ---------------------------------------------------------------- Backend: neu abgleichen
+
+    /**
+     * Recht für den ausdrücklichen Abgleich: Administratoren (BS_Settings::CAPABILITY,
+     * wie Einstellungen und Verbindungstest), die dieses Nutzerkonto bearbeiten dürfen.
+     */
+    public static function can_resync(int $customer_id): bool
+    {
+        return BS_Settings::can_manage() && current_user_can('edit_user', $customer_id);
+    }
+
+    /** Box im Nutzerprofil mit dem Knopf (nur registrierte Konten, nur mit Recht). */
+    public static function render_resync_profile(WP_User $user): void
+    {
+        $customer_id = (int) $user->ID;
+        if (! self::can_resync($customer_id) || ! self::is_registered($customer_id)) {
+            return;
+        }
+        $url = wp_nonce_url(admin_url('admin-post.php?action='.self::RESYNC_ACTION.'&user_id='.$customer_id), self::RESYNC_ACTION.'_'.$customer_id);
+        echo '<h2>'.esc_html__('Bootsschul-Plattform', 'bs-connector').'</h2>';
+        echo '<table class="form-table" role="presentation"><tr><th>'.esc_html__('Kontoabgleich', 'bs-connector').'</th><td>';
+        echo '<a class="button" href="'.esc_url($url).'">'.esc_html__('Konto mit der Bootsschul-Plattform neu abgleichen', 'bs-connector').'</a>';
+        echo '<p class="description">'.esc_html__('Sendet E-Mail, Name, Firma, Rechnungsland und USt-IdNr. erneut an die Plattform, auch wenn sie sich im Shop nicht geändert haben (z. B. nachdem das Konto auf der Plattform geändert oder zurückgesetzt wurde).', 'bs-connector').'</p>';
+        echo '</td></tr></table>';
+    }
+
+    public static function handle_admin_resync(): void
+    {
+        $customer_id = isset($_GET['user_id']) ? absint($_GET['user_id']) : 0;
+        check_admin_referer(self::RESYNC_ACTION.'_'.$customer_id);
+        if (! self::can_resync($customer_id)) {
+            wp_die(esc_html__('Keine Berechtigung.', 'bs-connector'), 403);
+        }
+        $queued = self::queue_resync($customer_id);
+        wp_safe_redirect(add_query_arg(['bs_resynced' => $queued ? 1 : 0, 'bs_resync_skipped' => $queued ? 0 : 1], get_edit_user_link($customer_id)));
+        exit;
+    }
+
+    public static function resync_bulk_action(array $actions): array
+    {
+        if (BS_Settings::can_manage()) {
+            $actions[self::RESYNC_ACTION] = __('Mit der Bootsschul-Plattform neu abgleichen', 'bs-connector');
+        }
+
+        return $actions;
+    }
+
+    /** Sammelaktion: nur registrierte Konten, die der Administrator bearbeiten darf. */
+    public static function handle_resync_bulk_action($redirect_to, $action, $user_ids)
+    {
+        if ($action !== self::RESYNC_ACTION) {
+            return $redirect_to;
+        }
+        // Nonce der Nutzerliste (WP_List_Table: bulk-users).
+        check_admin_referer('bulk-users');
+        if (! BS_Settings::can_manage()) {
+            wp_die(esc_html__('Keine Berechtigung.', 'bs-connector'), 403);
+        }
+        [$queued, $skipped] = [0, 0];
+        foreach (array_slice(array_map('intval', (array) $user_ids), 0, 200) as $customer_id) {
+            if (self::can_resync($customer_id) && self::queue_resync($customer_id)) {
+                $queued++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        return add_query_arg(['bs_resynced' => $queued, 'bs_resync_skipped' => $skipped], $redirect_to);
+    }
+
+    public static function resync_notices(): void
+    {
+        // phpcs:disable WordPress.Security.NonceVerification.Recommended -- nur Anzeige.
+        if (! isset($_GET['bs_resynced']) || ! BS_Settings::can_manage()) {
+            return;
+        }
+        $queued = absint($_GET['bs_resynced']);
+        $skipped = absint($_GET['bs_resync_skipped'] ?? 0);
+        // phpcs:enable
+        if ($queued > 0) {
+            echo '<div class="notice notice-success is-dismissible"><p>'.esc_html(sprintf(
+                /* translators: %d: Anzahl Konten */
+                _n('Abgleich eingeplant (%d Konto).', 'Abgleich eingeplant (%d Konten).', $queued, 'bs-connector'),
+                $queued
+            )).'</p></div>';
+        }
+        if ($skipped > 0) {
+            echo '<div class="notice notice-warning is-dismissible"><p>'.esc_html(sprintf(
+                /* translators: %d: Anzahl Konten */
+                _n('%d Konto übersprungen: nicht bei der Bootsschul-Plattform registriert.', '%d Konten übersprungen: nicht bei der Bootsschul-Plattform registriert.', $skipped, 'bs-connector'),
+                $skipped
+            )).'</p></div>';
+        }
     }
 
     /**
