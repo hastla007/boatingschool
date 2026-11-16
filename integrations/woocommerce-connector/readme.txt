@@ -2,7 +2,7 @@
 Requires at least: 6.5
 Requires PHP: 8.1
 Requires Plugins: woocommerce
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: Proprietary
 
 Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werden die Codes im Codebestand der verknüpften Bootsschule hinterlegt.
@@ -19,6 +19,7 @@ Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werd
 * Höchstmenge je Position kommt aus dem Katalog der Plattform (`max_quantity`, sonst 500).
 * Kurs- und Verlängerungscodes lassen sich nur für Kurse bestellen, die die verknüpfte Schule derzeit erhalten kann (geprüft schon beim Hinzufügen zum Warenkorb).
 * Rückerstattungen nur als Betrag (ohne Positionsmenge) sperren keine Codes; das Plugin meldet sie per Bestellnotiz und Alarm-Mail.
+* Kontaktdaten (E-Mail, Vor- und Nachname, Firma, Rechnungsland, USt-IdNr.) gleicht das Plugin beim Speichern von Profil oder Adresse mit der Plattform ab (`PATCH /accounts/{id}`, über Action Scheduler mit bis zu drei Versuchen) – aber nur, wenn sich eines dieser Felder seit dem letzten erfolgreichen Abgleich geändert hat (Prüfsumme in der Nutzer-Meta `_bs_account_sync_hash`, gesetzt erst nach erfolgreicher Antwort). WooCommerce speichert den Kunden z. B. bei jeder Bestellung; das löst nur noch einen Abgleich aus, wenn dabei z. B. die Firma geändert wurde (geprüft nach dem Speichern der Rechnungsdaten, Hook `woocommerce_update_customer`).
 * Der Kontostatus aus der Plattform wird zwischengespeichert (5 Minuten, Fehlschläge 60 Sekunden). An der Kasse wird frisch geprüft, höchstens alle 10 Sekunden je Kunde; „Mein Konto → Bootsschule verknüpfen“ lädt nur nach einem Verknüpfungsversuch frisch. So können Kunden die Begrenzung der Plattform nicht aufbrauchen.
 
 == Zahlarten ==
@@ -98,11 +99,14 @@ Die beiden Geheimnisse (`BS_CONNECTOR_SECRET`, `BS_CONNECTOR_INBOUND_SECRET`) ge
 
 An die Plattform gehen nur Kontaktdaten (E-Mail, Name, Firma, Land, USt-IdNr.) und Bestellpositionen (Bestell-/Positionsnummer, Art, Menge). Zahlungsdaten bleiben im Shop. Die Plattform legt bei der Registrierung kein Benutzerkonto an, sondern erst nach Prüfung und Freigabe durch den Betreiber.
 
-Das Plugin meldet sich bei den Datenschutz-Werkzeugen von WordPress an (Werkzeuge → Personenbezogene Daten exportieren/löschen). Exportiert bzw. gelöscht werden die Nutzer-Metadaten `bs_app_user_id`, `bs_app_tenant_id`, die Merker `_bs_registered`, `_bs_provisioned`, `_bs_email_confirmed`, `_bs_email_verify_sent` und `_bs_email_verify_key` sowie das Ergebnis der USt-IdNr.-Prüfung (`_bs_vat_*`).
+Das Plugin meldet sich bei den Datenschutz-Werkzeugen von WordPress an (Werkzeuge → Personenbezogene Daten exportieren/löschen). Exportiert bzw. gelöscht werden die Nutzer-Metadaten `bs_app_user_id`, `bs_app_tenant_id`, die Merker `_bs_registered`, `_bs_provisioned`, `_bs_email_confirmed`, `_bs_email_verify_sent`, `_bs_email_verify_key` und `_bs_account_sync_hash` (Prüfsumme des letzten Kontoabgleichs) sowie das Ergebnis der USt-IdNr.-Prüfung (`_bs_vat_*`).
 
 Für die USt-IdNr.-Prüfung geht die Nummer (Länderkennung und Nummer, ggf. die eigene USt-IdNr. des Shops) an den VIES-Dienst der EU-Kommission. Bestellungen und ihr Zustellstatus bleiben für die Buchhaltung erhalten. Das Konto auf der Plattform löscht der Plattform-Betreiber.
 
 == Changelog ==
+
+= 1.4.1 =
+* Kontoabgleich nur bei Änderung: `PATCH /accounts/{id}` geht nur noch, wenn sich die abgeglichenen Kontaktdaten seit dem letzten erfolgreichen Abgleich geändert haben. Bisher löste jede Bestellung (WooCommerce speichert dabei den Kunden, `profile_update`) einen Abgleich aus. Prüfsumme in der neuen Nutzer-Meta `_bs_account_sync_hash`, erst nach erfolgreicher Antwort gesetzt (nach einem Fehler sendet der nächste Versuch); auch doppelt eingeplante Abgleiche senden nur einmal. Zusätzlich am Hook `woocommerce_update_customer`, damit an der Kasse geänderte Rechnungsdaten erkannt werden (WooCommerce schreibt sie erst nach `profile_update`). Die Meta gehört zum Datenschutz-Export/-Löschen und wird bei der Deinstallation entfernt.
 
 = 1.4.0 =
 * Geheimnisse standardmäßig nur noch aus `wp-config.php`: „Geheimnisse aus der Datenbank erlauben“ ist jetzt aus (Filter `bs_connector_allow_db_secrets` bleibt). Bei „aus“ zeigt die Einstellungsseite keine Geheimnis-Felder, sondern die `define()`-Zeilen, und speichert keine Geheimnisse (auch nicht aus selbst gebauten Anfragen).

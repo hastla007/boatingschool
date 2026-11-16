@@ -136,7 +136,7 @@ Konto- und Statusabfragen, die Shopkunden indirekt auslösen, können so Lieferu
 | `GET /catalog` | Kurse (`code`, `name`), allein verkäufliche Produkte (`products`), alle aktiven Produkte als mögliche Zusatzprodukte (`option_products`) und `max_quantity` für die Produktzuordnung | |
 | `POST /accounts` | Registrierung (`shop_customer_id`, `email`, Name, `company_name`, `billing_country`, `vat_id`). 201 neu, 200 Wiederholung | 422 |
 | `GET /accounts/{customerId}` | Status, `can_purchase`, Schule, `deliverable_course_codes` | 404 |
-| `PATCH /accounts/{customerId}` | Kontaktdaten aus dem Shop | 404 |
+| `PATCH /accounts/{customerId}` | Kontaktdaten aus dem Shop. Das Plugin sendet nur, wenn sich E-Mail, Name, Firma, Rechnungsland oder USt-IdNr. seit dem letzten erfolgreichen Abgleich geändert haben (Prüfsumme `_bs_account_sync_hash`, ab 1.4.1), nicht bei jedem Speichern des Kunden | 404 |
 | `POST /accounts/{customerId}/link` | `link_code` | 422 `LINK_CODE_INVALID`, 409 `ACCOUNT_REJECTED`, 429 |
 | `POST /accounts/{customerId}/deactivate` | Shopkunde gelöscht: keine Einkäufe mehr | |
 | `POST /orders/lines` | Lieferauftrag (`shop_customer_id`, `order_id`, `order_line_id`, `order_number`, `kind` = course, renewal oder product, `course_code` bzw. `product_code`, `option_product_codes`, `quantity` ≤ `max_quantity` (500), `delivery=platform`). 201 neu, 200 Wiederholung | 403 `ACCOUNT_NOT_LINKED`, 422 `UNKNOWN_COURSE`, `COURSE_NOT_AVAILABLE`, `UNKNOWN_PRODUCT` (auch für nicht allein verkäufliche Produkte), 409 `ORDER_LINE_CONFLICT`, 429 `CODE_QUOTA_EXCEEDED` (Tageskontingent der Schule) |
@@ -233,7 +233,7 @@ MySQL; Ergebnis und Lücken: [`staging-test.md`](staging-test.md), Abschnitt
 - Signatur und Zustellentscheidungen gegen die App (Unit-Test).
 - Die WordPress-freien Hilfsklassen des Plugins: Bestätigungslink, Protokoll ohne Codewerte, Abgleich, Datenschutz-Export, Aktualität der `.pot` (`tests/Unit/ConnectorPluginHelpersTest.php`).
 - USt-IdNr.-Format je EU-Land, Auswertung der VIES-Antworten und Vorrang der Geheimnisse aus `wp-config.php` (`tests/Unit/ConnectorVatCheckTest.php`).
-- Status-Zwischenspeicher, Einstellungen nur für Administratoren, gesperrte Felder aus `wp-config.php`, Warenkorb-Sperren und Storno-Reaktivierung mit einem minimalen WordPress-/WooCommerce-Ersatz (`tests/Unit/ConnectorAccountsAndSettingsTest.php`, `tests/Unit/ConnectorOrdersAndCheckoutTest.php`).
+- Status-Zwischenspeicher, Kontoabgleich nur bei geänderten Feldern, Einstellungen nur für Administratoren, gesperrte Felder aus `wp-config.php`, Warenkorb-Sperren und Storno-Reaktivierung mit einem minimalen WordPress-/WooCommerce-Ersatz (`tests/Unit/ConnectorAccountsAndSettingsTest.php`, `tests/Unit/ConnectorOrdersAndCheckoutTest.php`).
 - Ein Ende-zu-Ende-Lauf in echtem WordPress mit WooCommerce (MySQL) gegen die laufende App
   (CI-Workflow `connector-wordpress.yml`, `tests/connector-e2e/run.sh`): Kundenkonto mit
   E-Mail-Bestätigung, Anmeldung bei der App, Verknüpfung per Code unter „Mein Konto“, Produkt mit

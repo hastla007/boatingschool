@@ -36,6 +36,9 @@ final class BS_Accounts
         add_action('woocommerce_created_customer', [__CLASS__, 'on_created_customer']);
         add_action('woocommerce_customer_save_address', [__CLASS__, 'queue_update']);
         add_action('profile_update', [__CLASS__, 'queue_update']);
+        // WooCommerce schreibt Rechnungsdaten erst nach profile_update (wp_update_user);
+        // dieser Hook sieht den gespeicherten Stand.
+        add_action('woocommerce_update_customer', [__CLASS__, 'queue_update']);
         add_action('delete_user', [__CLASS__, 'queue_deactivate']);
         add_action('bs_connector_sync_account', [__CLASS__, 'sync_account'], 10, 3);
 
@@ -246,11 +249,25 @@ final class BS_Accounts
         wc_add_notice($message, $type);
     }
 
+    /**
+     * Profil oder Adresse gespeichert: Abgleich nur, wenn sich die abgeglichenen
+     * Felder seit dem letzten erfolgreichen Abgleich geändert haben. WooCommerce
+     * speichert den Kunden z. B. bei jeder Bestellung (profile_update) -- ohne
+     * diese Prüfung ginge jedes Mal ein PATCH an die Plattform. Geänderte
+     * Rechnungsdaten erkennt woocommerce_update_customer (nach dem Speichern der
+     * Metadaten); sync_account liest die Daten bei der Ausführung ohnehin neu.
+     */
     public static function queue_update($user_id): void
     {
-        if (get_user_meta((int) $user_id, '_bs_registered', true)) {
-            self::enqueue('update', (int) $user_id);
+        $user_id = (int) $user_id;
+        if (! get_user_meta($user_id, '_bs_registered', true)) {
+            return;
         }
+        $user = get_userdata($user_id);
+        if ($user && self::already_synced($user_id, self::account_payload($user_id, $user))) {
+            return;
+        }
+        self::enqueue('update', $user_id);
     }
 
     public static function queue_deactivate($user_id): void
@@ -270,22 +287,25 @@ final class BS_Accounts
         }
     }
 
-    /** Abgleich mit der App; bei Fehler erneut nach 5 Minuten (höchstens drei Versuche je Vorgang). */
+    /**
+     * Abgleich mit der App; bei Fehler erneut nach 5 Minuten (höchstens drei Versuche je Vorgang).
+     *
+     * Ein Update, dessen Daten schon erfolgreich abgeglichen sind, entfällt auch
+     * hier (z. B. zweimal eingeplant, weil in einer Anfrage profile_update und
+     * woocommerce_customer_save_address feuern). Die Prüfsumme wird erst nach
+     * erfolgreicher Antwort gesetzt; nach einem Fehler sendet der nächste
+     * Versuch also wieder.
+     */
     public static function sync_account(string $action, int $customer_id, int $attempt = 1): void
     {
         $user = get_userdata($customer_id);
         if (! $user && $action !== 'deactivate') {
             return;
         }
-        $data = $user ? [
-            'email' => $user->user_email,
-            'first_name' => (string) get_user_meta($customer_id, 'first_name', true),
-            'last_name' => (string) get_user_meta($customer_id, 'last_name', true),
-            'company_name' => (string) get_user_meta($customer_id, 'billing_company', true),
-            'billing_country' => (string) get_user_meta($customer_id, 'billing_country', true),
-            'vat_id' => self::vat_id_for_app($customer_id),
-        ] : [];
-        $data = array_filter($data, static fn ($v) => $v !== '');
+        $data = $user ? self::account_payload($customer_id, $user) : [];
+        if ($action === 'update' && self::already_synced($customer_id, $data)) {
+            return;
+        }
 
         if ($action === 'register') {
             $response = BS_Api_Client::request('POST', '/accounts', ['shop_customer_id' => (string) $customer_id] + $data);
@@ -298,6 +318,10 @@ final class BS_Accounts
         if ($response['status'] && $response['status'] < 300) {
             if ($action === 'register') {
                 update_user_meta($customer_id, '_bs_registered', 1);
+            }
+            if ($action !== 'deactivate') {
+                // Prüfsumme der zuletzt erfolgreich abgeglichenen Kontaktdaten.
+                update_user_meta($customer_id, '_bs_account_sync_hash', self::payload_hash($data));
             }
             self::forget_status($customer_id);
 
@@ -313,6 +337,42 @@ final class BS_Accounts
             __('Kontenabgleich mit der Bootsschul-Plattform fehlgeschlagen', 'bs-connector'),
             sprintf('Kunde #%d, Aktion %s: %s', $customer_id, $action, (string) $response['error'])
         );
+    }
+
+    /**
+     * Kontaktdaten, die mit der App abgeglichen werden (POST /accounts, PATCH
+     * /accounts/{id}); leere Felder entfallen.
+     *
+     * @return array<string, string>
+     */
+    private static function account_payload(int $customer_id, $user): array
+    {
+        $data = [
+            'email' => (string) $user->user_email,
+            'first_name' => (string) get_user_meta($customer_id, 'first_name', true),
+            'last_name' => (string) get_user_meta($customer_id, 'last_name', true),
+            'company_name' => (string) get_user_meta($customer_id, 'billing_company', true),
+            'billing_country' => (string) get_user_meta($customer_id, 'billing_country', true),
+            'vat_id' => self::vat_id_for_app($customer_id),
+        ];
+
+        return array_filter($data, static fn ($v) => $v !== '');
+    }
+
+    /** Prüfsumme der Kontaktdaten (Reihenfolge der Felder egal). */
+    private static function payload_hash(array $data): string
+    {
+        ksort($data);
+
+        return hash('sha256', (string) wp_json_encode($data));
+    }
+
+    /** Sind genau diese Kontaktdaten schon erfolgreich abgeglichen? */
+    private static function already_synced(int $customer_id, array $data): bool
+    {
+        $stored = (string) get_user_meta($customer_id, '_bs_account_sync_hash', true);
+
+        return $stored !== '' && hash_equals($stored, self::payload_hash($data));
     }
 
     /** USt-IdNr. ohne Leer- und Trennzeichen, mit Länderkennung (z. B. „DE 811 191 002“ → DE811191002). */

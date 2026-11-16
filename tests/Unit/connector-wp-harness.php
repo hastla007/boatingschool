@@ -25,6 +25,9 @@ $GLOBALS['bs_options'] = $options['stored'] ?? [];
 $GLOBALS['bs_rendered'] = null;
 $GLOBALS['bs_saved'] = null;
 $GLOBALS['bs_filters'] = $options['filters'] ?? [];
+$GLOBALS['bs_user_meta'] = ($options['user_meta'] ?? []) + ['_bs_email_confirmed' => 'kunde@example.test'];
+$GLOBALS['bs_queue'] = [];
+$GLOBALS['bs_alerts'] = [];
 
 function get_transient($key)
 {
@@ -85,9 +88,52 @@ function wp_get_current_user()
 {
     return get_userdata(get_current_user_id());
 }
+/** Nutzer-Metadaten von Kunde 7 (Optionen 'user_meta'), beschreibbar. */
 function get_user_meta($id, $key, $single = false)
 {
-    return ['_bs_email_confirmed' => 'kunde@example.test'][$key] ?? '';
+    return $GLOBALS['bs_user_meta'][$key] ?? '';
+}
+function update_user_meta($id, $key, $value)
+{
+    $GLOBALS['bs_user_meta'][$key] = $value;
+
+    return true;
+}
+function delete_user_meta($id, $key)
+{
+    unset($GLOBALS['bs_user_meta'][$key]);
+
+    return true;
+}
+/** Hooks nur aufzeichnen (Hook => Rückruf). */
+function add_action($hook, $callback, $priority = 10, $args = 1)
+{
+    $GLOBALS['bs_hooks'][$hook] = $callback;
+
+    return true;
+}
+function add_filter($hook, $callback, $priority = 10, $args = 1)
+{
+    return add_action($hook, $callback, $priority, $args);
+}
+function wp_json_encode($data)
+{
+    return json_encode($data);
+}
+/** Action Scheduler nur auf Wunsch (Option 'action_scheduler'); Aufgaben landen in bs_queue. */
+if (! empty($options['action_scheduler'])) {
+    function as_enqueue_async_action($hook, $args = [], $group = '')
+    {
+        $GLOBALS['bs_queue'][] = [$hook, $args];
+
+        return count($GLOBALS['bs_queue']);
+    }
+    function as_schedule_single_action($timestamp, $hook, $args = [], $group = '')
+    {
+        $GLOBALS['bs_queue'][] = [$hook, $args];
+
+        return count($GLOBALS['bs_queue']);
+    }
 }
 function get_option($name, $default = false)
 {
@@ -162,8 +208,18 @@ final class BS_Api_Client
     }
 }
 
+/** Ersatz für die Alarm-Mail. */
+final class BS_Orders
+{
+    public static function alert(string $subject, string $message): void
+    {
+        $GLOBALS['bs_alerts'][] = $subject.': '.$message;
+    }
+}
+
 $includes = dirname(__DIR__, 2).'/integrations/woocommerce-connector/includes/';
 require $includes.'class-bs-settings.php';
+require $includes.'class-bs-vat.php';
 require $includes.'class-bs-email-verification.php';
 require $includes.'class-bs-accounts.php';
 
@@ -171,6 +227,14 @@ $out = [];
 $calls = static fn (): int => count($GLOBALS['bs_api_calls']);
 $advance = static function (int $seconds): void {
     $GLOBALS['bs_clock'] += $seconds;
+};
+// Die jetzt eingeplanten Abgleiche ausführen (wie ein Lauf von Action Scheduler);
+// dabei neu eingeplante Wiederholungen warten auf den nächsten Lauf.
+$runQueue = static function (): void {
+    [$jobs, $GLOBALS['bs_queue']] = [$GLOBALS['bs_queue'], []];
+    foreach ($jobs as $job) {
+        BS_Accounts::sync_account(...$job[1]);
+    }
 };
 $fieldIds = static fn (?array $fields): ?array => $fields === null ? null : array_values(array_map(static fn ($f) => $f['id'] ?? $f['type'], $fields));
 
@@ -253,6 +317,107 @@ switch ($scenario) {
         BS_Settings::render();
         $out['rendered'] = $fieldIds($GLOBALS['bs_rendered']);
         $out['rendered_texts'] = implode(' ', array_map(static fn ($f) => (string) ($f['desc'] ?? ''), (array) $GLOBALS['bs_rendered']));
+        break;
+
+    case 'account_sync':
+        // Ohne Action Scheduler wird sofort gesendet; gezählt werden die PATCH-Aufrufe.
+        BS_Accounts::queue_update(7);
+        $out['calls_first_save'] = $calls();
+        $out['hash_after_first'] = (string) get_user_meta(7, '_bs_account_sync_hash', true);
+        // WooCommerce speichert den Kunden erneut (z. B. bei einer Bestellung).
+        BS_Accounts::queue_update(7);
+        $out['calls_unchanged_save'] = $calls();
+        // Nicht abgeglichenes Feld.
+        update_user_meta(7, 'billing_phone', '0170 1234567');
+        BS_Accounts::queue_update(7);
+        $out['calls_unsynced_field'] = $calls();
+        // Abgeglichenes Feld.
+        update_user_meta(7, 'billing_company', 'Segelschule Kranich');
+        BS_Accounts::queue_update(7);
+        $out['calls_synced_field'] = $calls();
+        $out['hash_changed'] = $out['hash_after_first'] !== (string) get_user_meta(7, '_bs_account_sync_hash', true);
+        // Neue USt-IdNr. in anderer Schreibweise, aber gleich aufbereitet: kein Aufruf.
+        update_user_meta(7, 'billing_vat_id', 'DE 811 191 002');
+        BS_Accounts::queue_update(7);
+        $out['calls_vat_added'] = $calls();
+        update_user_meta(7, 'billing_vat_id', 'de811191002');
+        BS_Accounts::queue_update(7);
+        $out['calls_vat_same_normalized'] = $calls();
+        $out['api_calls'] = $GLOBALS['bs_api_calls'];
+        break;
+
+    case 'account_sync_wc_save':
+        // Bestellung mit geänderter Firma: WooCommerce feuert profile_update vor dem
+        // Schreiben der Rechnungsdaten, woocommerce_update_customer danach.
+        BS_Accounts::queue_update(7);
+        $out['calls_first_save'] = $calls();
+        BS_Accounts::queue_update(7); // profile_update, noch alter Stand
+        update_user_meta(7, 'billing_company', 'Segelschule Kranich');
+        BS_Accounts::queue_update(7); // woocommerce_update_customer
+        $out['calls_after_order'] = $calls();
+        // Hooks aus init(): woocommerce_update_customer gleicht ebenfalls ab.
+        $GLOBALS['bs_hooks'] = [];
+        BS_Accounts::init();
+        $out['update_hooks'] = array_keys(array_filter($GLOBALS['bs_hooks'], static fn ($cb) => $cb === [BS_Accounts::class, 'queue_update']));
+        break;
+
+    case 'account_sync_failure':
+        // Mit Action Scheduler: Fehler -> Wiederholung eingeplant, Prüfsumme bleibt leer.
+        BS_Accounts::queue_update(7);
+        $out['queued'] = count($GLOBALS['bs_queue']);
+        $runQueue();
+        $out['calls_after_failure'] = $calls();
+        $out['hash_after_failure'] = (string) get_user_meta(7, '_bs_account_sync_hash', true);
+        $out['alerts_after_failure'] = $GLOBALS['bs_alerts'];
+        $out['retry_queued'] = $GLOBALS['bs_queue'];
+        // Erneut gespeichert, bevor die Wiederholung lief: wird ebenfalls eingeplant.
+        BS_Accounts::queue_update(7);
+        $out['queued_after_failure_save'] = count($GLOBALS['bs_queue']);
+        // Wiederholung sendet und setzt die Prüfsumme; die zweite Aufgabe entfällt.
+        $runQueue();
+        $out['calls_after_retry'] = $calls();
+        $out['hash_after_retry'] = (string) get_user_meta(7, '_bs_account_sync_hash', true) !== '';
+        BS_Accounts::queue_update(7);
+        $out['queued_after_success_save'] = count($GLOBALS['bs_queue']);
+        $out['api_calls'] = $GLOBALS['bs_api_calls'];
+        break;
+
+    case 'account_sync_twice_queued':
+        // profile_update und woocommerce_customer_save_address in einer Anfrage:
+        // zwei Aufgaben, aber nur ein Aufruf.
+        BS_Accounts::queue_update(7);
+        BS_Accounts::queue_update(7);
+        $out['queued'] = count($GLOBALS['bs_queue']);
+        $runQueue();
+        $out['calls'] = $calls();
+        // Registrierung setzt die Prüfsumme ebenfalls: das folgende Speichern sendet nichts.
+        unset($GLOBALS['bs_user_meta']['_bs_account_sync_hash']);
+        BS_Accounts::sync_account('register', 7);
+        BS_Accounts::queue_update(7);
+        $out['queued_after_register'] = count($GLOBALS['bs_queue']);
+        $out['api_calls'] = $GLOBALS['bs_api_calls'];
+        break;
+
+    case 'uninstall':
+        define('WP_UNINSTALL_PLUGIN', true);
+        $GLOBALS['bs_deleted_meta'] = [];
+        function delete_metadata($type, $object_id, $key, $value = '', $all = false)
+        {
+            $GLOBALS['bs_deleted_meta'][] = [$type, $object_id, $key, $all];
+
+            return true;
+        }
+        $GLOBALS['wpdb'] = new class
+        {
+            public $options = 'wp_options';
+
+            public function query($sql)
+            {
+                return 0;
+            }
+        };
+        require dirname(__DIR__, 2).'/integrations/woocommerce-connector/uninstall.php';
+        $out['deleted_meta'] = $GLOBALS['bs_deleted_meta'];
         break;
 
     default:
