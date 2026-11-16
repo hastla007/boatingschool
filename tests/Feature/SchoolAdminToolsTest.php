@@ -27,7 +27,7 @@ class SchoolAdminToolsTest extends TestCase
         parent::tearDown();
     }
 
-    private function attempt(Tenant $tenant, User $user, string $when): void
+    private function recordAttempt(Tenant $tenant, User $user, string $when): void
     {
         $revision = $this->onAdmin(fn () => ContentQuestionRevision::where('editorial_status', 'published')->firstOrFail());
         $this->onAdmin(fn () => Attempt::forceCreate([
@@ -63,7 +63,7 @@ class SchoolAdminToolsTest extends TestCase
         $admin = $this->createTenantUser($tenant, 'admin');
         $learner = $this->createTenantUser($tenant, 'learner');
         $this->grantEntitlement($tenant, $learner, $this->existingCourse('SRC'));
-        $this->attempt($tenant, $learner, now()->subDays(3)->toDateTimeString());
+        $this->recordAttempt($tenant, $learner, now()->subDays(3)->toDateTimeString());
 
         $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}")->assertOk()
             ->assertSee('Lernstand')->assertSee('SRC')->assertSee('prüfungsreif ab')->assertSee('Zuletzt gelernt: '.now()->subDays(3)->timezone('Europe/Berlin')->format('d.m.Y'), false)
@@ -83,8 +83,8 @@ class SchoolAdminToolsTest extends TestCase
         foreach ([$idle, $busy, $never] as $u) {
             $this->grantEntitlement($tenant, $u, $src);
         }
-        $this->attempt($tenant, $idle, now()->subDays(20)->toDateTimeString());
-        $this->attempt($tenant, $busy, now()->subDay()->toDateTimeString());
+        $this->recordAttempt($tenant, $idle, now()->subDays(20)->toDateTimeString());
+        $this->recordAttempt($tenant, $busy, now()->subDay()->toDateTimeString());
 
         $this->actingAsInTenant($admin, $tenant)->get('/admin/inactive?days=14')->assertOk()
             ->assertSee('Ida Idle')->assertSee('Nils Nie')->assertDontSee('Bea Busy')->assertDontSee('Otto Ohne')->assertSee('Alle erinnern (2)');
@@ -172,7 +172,7 @@ class SchoolAdminToolsTest extends TestCase
         $admin = $this->createTenantUser($tenant, 'admin');
         $learner = $this->createTenantUser($tenant, 'learner');
         $this->grantEntitlement($tenant, $learner, $this->existingCourse('SRC'));
-        $this->attempt($tenant, $learner, now()->subDays(2)->toDateTimeString());
+        $this->recordAttempt($tenant, $learner, now()->subDays(2)->toDateTimeString());
         $this->onAdmin(function () use ($tenant, $admin) {
             foreach (range(1, 55) as $i) {
                 AuditLog::record($tenant->id, $admin->id, 'branding.update', 'tenant_branding', $tenant->id, null, null);
