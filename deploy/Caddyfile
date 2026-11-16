@@ -28,7 +28,7 @@
 	}
 	respond @andere_php 404
 	@app not path /storage/* /build/*
-	php_fastcgi @app unix//run/php/php8.3-fpm.sock
+	php_fastcgi @app unix//run/php/php8.4-fpm.sock
 }
 
 # Interner Prüf-Endpunkt (nur lokal erreichbar).
