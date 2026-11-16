@@ -11,6 +11,11 @@ updates:
     groups:
       composer-minor-patch:
         update-types: [minor, patch]
+    ignore:
+      # PHPUnit 13 setzt PHP >= 8.4 voraus; die Plattform unterstützt PHP 8.3.
+      # Pausiert bis zur Entscheidung über das Ende von PHP 8.3 (siehe #85).
+      - dependency-name: phpunit/phpunit
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
     directory: /
@@ -20,6 +25,12 @@ updates:
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
+    ignore:
+      # Tailwind 4 braucht eine Konfig-Migration, Umbenennungen in rund 190
+      # Blade-Dateien und neue Browser-Mindestversionen (Safari 16.4+).
+      # Pausiert bis zur Entscheidung (siehe #86).
+      - dependency-name: tailwindcss
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
