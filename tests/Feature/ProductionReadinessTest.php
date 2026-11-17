@@ -130,4 +130,19 @@ class ProductionReadinessTest extends TestCase
             File::deleteDirectory($public);
         }
     }
+
+    public function test_the_shop_url_must_use_https(): void
+    {
+        config(['commerce.shop_url' => null]);
+        $this->assertNull($this->check('COMMERCE_SHOP_URL mit https'));
+
+        config(['commerce.shop_url' => 'https://shop.example.de']);
+        $this->assertSame('ok', $this->check('COMMERCE_SHOP_URL mit https')['status']);
+
+        config(['commerce.shop_url' => 'http://shop.example.de']);
+        $this->assertSame('fail', $this->check('COMMERCE_SHOP_URL mit https')['status']);
+
+        config(['commerce.shop_url' => 'http://localhost:8080']);
+        $this->assertSame('warn', $this->check('COMMERCE_SHOP_URL mit https')['status']);
+    }
 }

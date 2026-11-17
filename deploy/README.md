@@ -110,7 +110,8 @@ Name des Punkts im Check und der erwartete Status.
 - [ ] Footer-Platzhalter „XXX“ in `resources/views/components/site-footer.blade.php` durch die
   echten Angaben ersetzen („Footer ohne Platzhalter“ OK; bis dahin bewusst FEHL).
 - [ ] Shop-Anbindung (falls genutzt): `COMMERCE_SHOP_SECRET`/`COMMERCE_OUTBOUND_SECRET` mit
-  `openssl rand -hex 32` („Geheimnisse der Shop-Anbindung mind. 32 Zeichen“ OK), im Shop
+  `openssl rand -hex 32` („Geheimnisse der Shop-Anbindung mind. 32 Zeichen“ OK),
+  `COMMERCE_SHOP_URL` mit `https://` („COMMERCE_SHOP_URL mit https“ OK), im Shop
   Plugin ab 1.4.1 mit Geheimnissen in `wp-config.php` (`docs/commerce/README.md`).
 
 ## 2. Updates einspielen
