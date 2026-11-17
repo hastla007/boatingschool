@@ -5,8 +5,8 @@
  * Plugin URI:        https://license.example.com/boatingschool-form-connector
  * Description:       Übergibt Einsendungen ausgewählter Form-Captain-Formulare (Demo, Beratung, Infos zum Schulzugang) als Lead an die Lead-Inbox der BoatingSchool-Plattform. Nur zugeordnete, nicht sensible Felder und ein Verweis auf die Einwilligung; die Plattform legt daraus kein Konto an. Braucht Form Captain und einen Lizenzschlüssel. Standardmäßig aus.
  * Version:           1.1.0
- * Requires at least: 6.8
- * Requires PHP:      8.3
+ * Requires at least: 7.0
+ * Requires PHP:      8.5
  * Requires Plugins:  form-captain
  * Author:            BoatingSchool
  * Update URI:        https://license.example.com/boatingschool-form-connector
