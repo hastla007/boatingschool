@@ -2,7 +2,7 @@
 # Erzeugt mit bin/make-pot.php -- nicht von Hand bearbeiten.
 msgid ""
 msgstr ""
-"Project-Id-Version: Bootsschul-Plattform Connector 1.5.0\n"
+"Project-Id-Version: Bootsschul-Plattform Connector 1.5.1\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -505,48 +505,48 @@ msgid "Verfügbar: %s"
 msgstr ""
 
 #. translators: 1: Mindestversion, 2: aktuelle Version
-#: includes/class-bs-requirements.php:67
+#: includes/class-bs-requirements.php:68
 #, php-format
 msgid "PHP %1$s oder neuer (aktuell: %2$s)"
 msgstr ""
 
 #. translators: 1: Mindestversion, 2: aktuelle Version
-#: includes/class-bs-requirements.php:71
+#: includes/class-bs-requirements.php:72
 #, php-format
 msgid "WordPress %1$s oder neuer (aktuell: %2$s)"
 msgstr ""
 
 #. translators: %s: Mindestversion
-#: includes/class-bs-requirements.php:75
+#: includes/class-bs-requirements.php:76
 #, php-format
 msgid "WooCommerce %s oder neuer (nicht aktiv)"
 msgstr ""
 
 #. translators: 1: Mindestversion, 2: aktuelle Version
-#: includes/class-bs-requirements.php:78
+#: includes/class-bs-requirements.php:79
 #, php-format
 msgid "WooCommerce %1$s oder neuer (aktuell: %2$s)"
 msgstr ""
 
 #. translators: 1: MySQL oder MariaDB, 2: aktuelle Version, 3: empfohlene Mindestversion
-#: includes/class-bs-requirements.php:107
+#: includes/class-bs-requirements.php:108
 #, php-format
 msgid "Die Datenbank (%1$s %2$s) ist älter als empfohlen (%1$s %3$s oder neuer). Der Connector läuft weiter; bitte die Datenbank aktualisieren."
 msgstr ""
 
-#: includes/class-bs-requirements.php:144
+#: includes/class-bs-requirements.php:145
 msgid "Der Bootsschul-Plattform Connector wurde nicht aktiviert. Es fehlen:"
 msgstr ""
 
-#: includes/class-bs-requirements.php:146
+#: includes/class-bs-requirements.php:147
 msgid "Mindestanforderungen nicht erfüllt"
 msgstr ""
 
-#: includes/class-bs-requirements.php:182
+#: includes/class-bs-requirements.php:183
 msgid "Der Bootsschul-Plattform Connector läuft in einer nicht unterstützten Umgebung weiter. Bitte aktualisieren:"
 msgstr ""
 
-#: includes/class-bs-requirements.php:183
+#: includes/class-bs-requirements.php:184
 msgid "Der Bootsschul-Plattform Connector ist angehalten. Eingeplante Zustellungen bleiben erhalten und laufen weiter, sobald die Anforderungen erfüllt sind. Es fehlen:"
 msgstr ""
 

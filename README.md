@@ -330,7 +330,7 @@ verlassen die Plattform nie. Die Konten verknüpft ein Einmalcode aus der
 App oder die Freigabe durch den Superadmin. Gleiche E-Mail-Adressen
 verknüpfen nie. Commerce-API unter `/api/commerce/v1` (HMAC-signiert),
 WordPress-Plugin unter `integrations/woocommerce-connector/` (ab 1.5.0: PHP 8.5+,
-WordPress 7.0+, WooCommerce 11.2+; MySQL 9.7+ bzw. MariaDB 12.3+ empfohlen, ältere
+WordPress 7.0+, WooCommerce 11.2.2+; MySQL 9.7+ bzw. MariaDB 12.3+ empfohlen, ältere
 Datenbank nur mit Hinweis). Alles Weitere:
 [`docs/commerce/README.md`](docs/commerce/README.md).
 

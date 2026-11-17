@@ -3,9 +3,9 @@ Requires at least: 7.0
 Tested up to: 7.1
 Requires PHP: 8.5
 Requires Plugins: woocommerce
-WC requires at least: 11.2
+WC requires at least: 11.2.2
 WC tested up to: 11.3
-Stable tag: 1.5.0
+Stable tag: 1.5.1
 License: Proprietary
 
 Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werden die Codes im Codebestand der verknüpften Bootsschule hinterlegt.
@@ -75,7 +75,7 @@ Text-Domain `bs-connector`, Ordner `languages/`. Die Vorlage `languages/bs-conne
 
 == Mindestanforderungen ==
 
-* PHP 8.5 oder neuer, WordPress 7.0 oder neuer, WooCommerce 11.2 oder neuer (Entscheidung MINVER-1 vom 17.11.2026; einheitlich für Plattform, Plugins und Connectoren).
+* PHP 8.5 oder neuer, WordPress 7.0 oder neuer, WooCommerce 11.2.2 oder neuer (Entscheidung MINVER-1 vom 17.11.2026; einheitlich für Plattform, Plugins und Connectoren).
 * Datenbank: MySQL 9.7 oder neuer bzw. MariaDB 12.3 oder neuer empfohlen. Ein älterer Datenbankserver ergibt nur einen Hinweis für Administratoren, das Plugin läuft weiter.
 * Aktivieren: Fehlt eine der Mindestversionen (oder WooCommerce), bricht die Aktivierung mit einer Liste der fehlenden Anforderungen ab.
 * Laufender Betrieb (z. B. nach einem Downgrade von PHP, WordPress oder WooCommerce): Das Plugin läuft weiter und zeigt Administratoren (`manage_options`) einen Hinweis mit den fehlenden Anforderungen. Bewusst kein Abschalten: Eingeplante Zustellungen in Action Scheduler fänden sonst keinen Rückruf mehr und würden als fehlgeschlagen markiert, und Bootsschul-Produkte blieben ohne Einkaufsprüfung kaufbar.
@@ -83,7 +83,7 @@ Text-Domain `bs-connector`, Ordner `languages/`. Die Vorlage `languages/bs-conne
 
 == Installation ==
 
-1. Ordner `woocommerce-connector` nach `wp-content/plugins/` kopieren und aktivieren (WooCommerce 11.2 oder neuer muss aktiv sein, siehe „Mindestanforderungen“).
+1. Ordner `woocommerce-connector` nach `wp-content/plugins/` kopieren und aktivieren (WooCommerce 11.2.2 oder neuer muss aktiv sein, siehe „Mindestanforderungen“).
 2. Geheimnisse in `wp-config.php` eintragen:
 
     define( 'BS_CONNECTOR_APP_URL', 'https://app.example.de' );
@@ -120,6 +120,9 @@ Das Plugin meldet sich bei den Datenschutz-Werkzeugen von WordPress an (Werkzeug
 Für die USt-IdNr.-Prüfung geht die Nummer (Länderkennung und Nummer, ggf. die eigene USt-IdNr. des Shops) an den VIES-Dienst der EU-Kommission. Bestellungen und ihr Zustellstatus bleiben für die Buchhaltung erhalten. Das Konto auf der Plattform löscht der Plattform-Betreiber.
 
 == Changelog ==
+
+= 1.5.1 =
+* WooCommerce-Mindestversion 11.2.2 statt 11.2: WooCommerce 11.2.0 und 11.2.1 übernehmen Bestell- und Zahlungsdaten eines früheren Store-API-Checkouts im selben PHP-Prozess (behoben in 11.2.2, woocommerce#70637).
 
 = 1.5.0 =
 * Mindestanforderungen angehoben (MINVER-1): PHP 8.5, WordPress 7.0, WooCommerce 11.2 (Plugin-Kopf und readme: `Requires PHP`, `Requires at least`, `WC requires at least`, `Tested up to` 7.1, `WC tested up to` 11.3).

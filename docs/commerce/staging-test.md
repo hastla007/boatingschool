@@ -26,7 +26,7 @@ größeren WooCommerce-Updates abhaken.
       Shop-Anbindung“ `ok`.
 - [ ] Cron für `schedule:run` läuft (sonst wird `app:commerce-outbox` nicht gesendet).
 - [ ] Mindestanforderungen MINVER-1 (ab Plugin 1.5.0): PHP ≥ 8.5, WordPress ≥ 7.0,
-      WooCommerce ≥ 11.2 mit HPOS (sonst bricht die Aktivierung mit Hinweis ab); Datenbank
+      WooCommerce ≥ 11.2.2 mit HPOS (sonst bricht die Aktivierung mit Hinweis ab); Datenbank
       MySQL ≥ 9.7 bzw. MariaDB ≥ 12.3 empfohlen (älter: nur Hinweis im Backend);
       Permalinks **nicht** „Einfach“.
 - [ ] Plugin kopiert und aktiviert. Geheimnisse in `wp-config.php` (siehe `readme.txt`).
