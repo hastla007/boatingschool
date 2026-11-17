@@ -11,11 +11,6 @@ updates:
     groups:
       composer-minor-patch:
         update-types: [minor, patch]
-    ignore:
-      # PHPUnit 13 setzt PHP >= 8.4 voraus; die Plattform unterstützt PHP 8.3.
-      # Pausiert bis zur Entscheidung über das Ende von PHP 8.3 (siehe #85).
-      - dependency-name: phpunit/phpunit
-        update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
     directory: /

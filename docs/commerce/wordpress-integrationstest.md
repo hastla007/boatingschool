@@ -174,7 +174,7 @@ Push und Pull Request, wenn sich das Plugin, der Commerce-Code der App
 Migrationen), `tests/connector-e2e/` oder der Workflow ändern, sowie von Hand
 (`workflow_dispatch`).
 
-Aufbau: PHP 8.3, PostgreSQL 16 (App, migriert und mit `db:seed` befüllt) und
+Aufbau: PHP 8.4, PostgreSQL 16 (App, migriert und mit `db:seed` befüllt) und
 MySQL 8.4 (WordPress) als Dienste; App mit `php artisan serve` und
 Wegwerf-Geheimnissen `COMMERCE_SHOP_SECRET`/`COMMERCE_OUTBOUND_SECRET`;
 WordPress (gepinnt, derzeit 7.1.4), WooCommerce (gepinnt, derzeit 11.3.0)
