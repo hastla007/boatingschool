@@ -145,4 +145,20 @@ class ProductionReadinessTest extends TestCase
         config(['commerce.shop_url' => 'http://localhost:8080']);
         $this->assertSame('warn', $this->check('COMMERCE_SHOP_URL mit https')['status']);
     }
+
+    /** MINVER-1: unter PHP 8.5 ist der Betrieb nicht unterstützt (FEHL). */
+    public function test_php_older_than_85_fails_the_check(): void
+    {
+        $this->assertSame('fail', ProductionReadiness::phpVersion('8.4.15')[0]);
+        $this->assertStringContainsString('unterstützt ab PHP 8.5', ProductionReadiness::phpVersion('8.4.15')[1]);
+        $this->assertSame('fail', ProductionReadiness::phpVersion('8.3.6')[0]);
+        $this->assertSame('ok', ProductionReadiness::phpVersion('8.5.0')[0]);
+        $this->assertSame('ok', ProductionReadiness::phpVersion('8.6.0-dev')[0]);
+
+        // Der Check selbst prüft die laufende Version (in der CI 8.5 oder neuer).
+        $check = $this->check('PHP 8.5 oder neuer');
+        $this->assertSame('System', $check['group']);
+        $this->assertSame('ok', $check['status']);
+        $this->assertStringContainsString(PHP_VERSION, $check['detail']);
+    }
 }

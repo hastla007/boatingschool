@@ -28,6 +28,8 @@ $GLOBALS['bs_filters'] = $options['filters'] ?? [];
 $GLOBALS['bs_user_meta'] = ($options['user_meta'] ?? []) + ['_bs_email_confirmed' => 'kunde@example.test'];
 $GLOBALS['bs_queue'] = [];
 $GLOBALS['bs_alerts'] = [];
+$GLOBALS['bs_env'] = $options['env'] ?? [];
+$GLOBALS['bs_deactivated'] = [];
 
 function get_transient($key)
 {
@@ -133,7 +135,25 @@ function check_admin_referer($action)
 }
 function wp_die($message = '', $code = 500)
 {
+    $GLOBALS['bs_die_message'] = $message;
     throw new BS_Harness_Stop('die:'.$code);
+}
+/** Umgebung für die Mindestanforderungen (BS_Requirements): Versionen aus den Optionen. */
+function bs_connector_php_version()
+{
+    return $GLOBALS['bs_env']['php'] ?? PHP_VERSION;
+}
+function get_bloginfo($what)
+{
+    return $what === 'version' ? ($GLOBALS['bs_env']['wordpress'] ?? '7.1.4') : '';
+}
+function plugin_basename($file)
+{
+    return basename(dirname($file)).'/'.basename($file);
+}
+function deactivate_plugins($plugins)
+{
+    $GLOBALS['bs_deactivated'][] = $plugins;
 }
 function wp_safe_redirect($url)
 {
@@ -188,6 +208,7 @@ if (! empty($options['action_scheduler'])) {
     function as_schedule_single_action($timestamp, $hook, $args = [], $group = '')
     {
         $GLOBALS['bs_queue'][] = [$hook, $args];
+        $GLOBALS['bs_queue_meta'][] = ['delay' => $timestamp - time(), 'group' => $group];
 
         return count($GLOBALS['bs_queue']);
     }
@@ -314,6 +335,7 @@ if (! empty($options['woocommerce'])) {
 }
 
 $includes = dirname(__DIR__, 2).'/integrations/woocommerce-connector/includes/';
+require $includes.'class-bs-requirements.php';
 require $includes.'class-bs-log.php';
 require $includes.'class-bs-settings.php';
 require $includes.'class-bs-vat.php';
@@ -639,6 +661,42 @@ switch ($scenario) {
         $out['api_calls'] = $GLOBALS['bs_api_calls'];
         $out['queue'] = $GLOBALS['bs_queue'];
         $out['hash_set'] = (string) get_user_meta(7, '_bs_account_sync_hash', true) !== '';
+        break;
+
+    case 'requirements':
+        // Mindestanforderungen: Aktivierung (Abbruch mit Hinweis), Hinweise im
+        // Backend (Anforderungen, Datenbank) und Verschieben eingeplanter Aufgaben.
+        $out['problems'] = BS_Requirements::current_problems();
+        $out['can_run'] = BS_Requirements::can_run(bs_connector_php_version());
+        $out['activation_stop'] = $stopped(static function () {
+            BS_Requirements::abort_activation(BS_Requirements::current_problems(), '/srv/wp-content/plugins/woocommerce-connector/boatingschool-connector.php');
+        });
+        $out['activation_message'] = $GLOBALS['bs_die_message'] ?? null;
+        $out['deactivated'] = $GLOBALS['bs_deactivated'];
+        $GLOBALS['wpdb'] = new class($options['db'] ?? '9.7.0')
+        {
+            public function __construct(private string $info) {}
+
+            public function db_server_info()
+            {
+                return $this->info;
+            }
+        };
+        BS_Requirements::register_notices();
+        ob_start();
+        foreach ($GLOBALS['bs_hook_list']['admin_notices'] ?? [] as $callback) {
+            $callback();
+        }
+        $out['admin_notices'] = (string) ob_get_clean();
+        break;
+
+    case 'requirements_defer':
+        BS_Requirements::defer_scheduled_actions();
+        $out['hooks'] = array_keys($GLOBALS['bs_hook_list']);
+        $GLOBALS['bs_hook_list']['bs_connector_deliver_item'][0](12, 34, 2);
+        $GLOBALS['bs_hook_list']['bs_connector_void_item'][0](12, 34, 1, 'k', 1);
+        $out['queue'] = $GLOBALS['bs_queue'];
+        $out['queue_meta'] = $GLOBALS['bs_queue_meta'] ?? [];
         break;
 
     case 'uninstall':

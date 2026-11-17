@@ -195,8 +195,23 @@ ausfällt, und zeigt Administratoren einen Hinweis. Danach die Konstanten in
 `wp-config.php` setzen, „Verbindung testen“ und die Einstellung ausschalten.
 Neuinstallationen und Installationen ohne solche Geheimnisse bleiben bei „aus“.
 
-Voraussetzungen: WooCommerce ab 8 (HPOS-kompatibel) und der mitgelieferte
-Action Scheduler. Außerdem:
+Mindestanforderungen (Entscheidung MINVER-1 vom 17.11.2026, einheitlich für
+Plattform, Plugins und Connectoren; ab Plugin 1.5.0): **PHP 8.5+**, **WordPress
+7.0+**, **WooCommerce 11.2+** (HPOS-kompatibel, mit dem mitgelieferten Action
+Scheduler). Datenbank des Shops: **MySQL 9.7+** bzw. **MariaDB 12.3+** empfohlen;
+ein älterer Datenbankserver ergibt nur einen Hinweis für Administratoren, keine
+Sperre. Die Plattform selbst läuft weiter auf PostgreSQL (16–18).
+
+- **Aktivieren:** Fehlt PHP 8.5, WordPress 7.0 oder WooCommerce 11.2, bricht die
+  Aktivierung ab und nennt die fehlenden Anforderungen (`includes/class-bs-requirements.php`).
+- **Laufender Betrieb** (z. B. nach einem Downgrade): Das Plugin läuft weiter und zeigt
+  Administratoren (`manage_options`) einen Hinweis. Bewusst kein Abschalten: Eingeplante
+  Zustellungen fänden in Action Scheduler keinen Rückruf mehr und würden als fehlgeschlagen
+  markiert, und Bootsschul-Produkte blieben ohne Einkaufsprüfung kaufbar. Nur unter PHP 8.1
+  (dort läuft der Code nicht) und ohne WooCommerce startet es nicht; unter PHP 8.1 verschiebt
+  es seine eingeplanten Aufgaben unverändert um eine Stunde, statt sie zu verwerfen.
+
+Außerdem:
 
 - Die Einstellungen (WooCommerce → Einstellungen → Bootsschule) sehen und
   speichern nur **Administratoren** (`manage_options`), nicht Shop-Manager.

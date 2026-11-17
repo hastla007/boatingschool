@@ -1,7 +1,7 @@
 # Staging-Shop (WordPress, WooCommerce, Yoast, Mailpit)
 
 Ein Shop zum Durchspielen der Checkliste [`docs/commerce/staging-test.md`](../../docs/commerce/staging-test.md)
-gegen eine Staging-Instanz der Plattform: MySQL 8.4, WordPress (neueste Version, Apache),
+gegen eine Staging-Instanz der Plattform: MySQL 9.7, WordPress (neueste Version, Apache, PHP 8.5),
 WooCommerce und Yoast SEO (neueste Versionen), das Connector-Plugin aus
 `integrations/woocommerce-connector` (Bind-Mount, Änderungen wirken sofort), WP-CLI und
 Mailpit als SMTP-Server mit Web-Oberfläche. **Nur für Tests**, nicht für den Livebetrieb.
@@ -25,11 +25,16 @@ cp .env.example .env
 ./setup.sh
 ```
 
-`setup.sh` startet die Container (offizielle Images `mysql:8.4`, `wordpress:latest`,
-`wordpress:cli`, `axllent/mailpit`), installiert WordPress, bringt es mit `wp core update`
+`setup.sh` startet die Container (offizielle Images `mysql:9.7`, `wordpress:php8.5-apache`,
+`wordpress:cli-php8.5`, `axllent/mailpit`; PHP und MySQL in den Mindestversionen MINVER-1,
+siehe [`docs/commerce/README.md`](../../docs/commerce/README.md)), installiert WordPress, bringt es mit `wp core update`
 auf den neuesten Stand, installiert bzw. aktualisiert WooCommerce und Yoast SEO, stellt
 Deutsch ein, aktiviert HPOS, Permalinks „Beitragsname“, Deutschland/EUR, die Zahlarten Überweisung, Nachnahme und „Testzahlung“ und aktiviert den Connector.
 Am Ende gibt es die Versionen aus. Es kann jederzeit erneut laufen (z. B. für Updates).
+Bestehender Staging-Shop mit MySQL 8.4: Beim ersten Start mit `mysql:9.7` aktualisiert MySQL
+das Datenverzeichnis selbst (Sprung von LTS zu LTS, kein Zurück auf 8.4). Wer den alten Stand
+behalten will, sichert vorher (`docker compose exec db mysqldump …`); sonst neu aufsetzen mit
+`docker compose down -v` und `./setup.sh`.
 
 - Shop: `http://127.0.0.1:8080/wp-admin/` (Benutzer `admin`, Passwort aus `.env`)
 - Mailpit: `http://127.0.0.1:8025/` – alle Mails des Shops (MU-Plugin `bs-staging-smtp.php`)

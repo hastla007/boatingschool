@@ -11,6 +11,11 @@ prüft seitdem ein CI-Job automatisch, siehe
 
 ## Versionen
 
+Stand dieses Laufs (13.11.2026). Seit Plugin 1.5.0 gelten die Mindestversionen
+MINVER-1: PHP 8.5, WordPress 7.0, WooCommerce 11.2, MySQL 9.7 bzw. MariaDB 12.3
+(empfohlen, siehe [README.md](README.md)); PHP 8.3 und MariaDB 10.11 aus diesem
+Lauf werden nicht mehr unterstützt.
+
 | Teil | Version |
 |---|---|
 | WordPress | 7.1.4 (deutsche Sprachdatei nicht verfügbar, Oberfläche teils englisch) |
@@ -174,8 +179,9 @@ Push und Pull Request, wenn sich das Plugin, der Commerce-Code der App
 Migrationen), `tests/connector-e2e/` oder der Workflow ändern, sowie von Hand
 (`workflow_dispatch`).
 
-Aufbau: PHP 8.4, PostgreSQL 16 (App, migriert und mit `db:seed` befüllt) und
-MySQL 8.4 (WordPress) als Dienste; App mit `php artisan serve` und
+Aufbau: PHP 8.5, PostgreSQL 16 (App, migriert und mit `db:seed` befüllt) und
+MySQL 9.7 (WordPress) als Dienste, also die Mindestversionen MINVER-1 (PHP 8.5,
+WordPress 7.0, WooCommerce 11.2, MySQL 9.7; siehe [README.md](README.md)); App mit `php artisan serve` und
 Wegwerf-Geheimnissen `COMMERCE_SHOP_SECRET`/`COMMERCE_OUTBOUND_SECRET`;
 WordPress (gepinnt, derzeit 7.1.4), WooCommerce (gepinnt, derzeit 11.3.0)
 und WP-CLI 2.12.0; Plugin per Symlink aus dem Repository, `BS_CONNECTOR_*`
@@ -214,9 +220,10 @@ Kontingent und Wiederholungen.
 
 ### Lokal nachstellen
 
-Voraussetzungen: laufendes PostgreSQL mit migrierter und befüllter
-App-Datenbank, eine MySQL-Datenbank für WordPress, WP-CLI, Zugriff auf
-wordpress.org.
+Voraussetzungen: PHP 8.5 oder neuer (für App, WordPress und WP-CLI; darunter
+verweigert WordPress das Aktivieren des Connectors), laufendes PostgreSQL mit
+migrierter und befüllter App-Datenbank, eine MySQL-Datenbank (9.7 oder neuer
+empfohlen) für WordPress, WP-CLI, Zugriff auf wordpress.org.
 
 ```bash
 export WP_PATH=/tmp/wp WP_URL=http://127.0.0.1:8080 APP_URL=http://127.0.0.1:8000

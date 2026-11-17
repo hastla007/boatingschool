@@ -2,7 +2,7 @@
 
 Vorlagen in diesem Ordner gehen von einem Linux-Server (Ubuntu/Debian) aus,
 mit der App unter `/var/www/boatingschool`, einem Deploy-Benutzer `deploy`
-und PHP 8.4-FPM. Pfade, Domain (`lernen.example.de`) und Benutzer anpassen.
+und PHP 8.5-FPM. Pfade, Domain (`lernen.example.de`) und Benutzer anpassen.
 Mit Laravel Forge oder Ploi gelten dieselben Schritte; dort trägt man Cron,
 Worker und Deploy-Skript in der Oberfläche ein.
 
@@ -18,9 +18,11 @@ Worker und Deploy-Skript in der Oberfläche ein.
 
 ## 1. Erstinstallation
 
-1. **Pakete**: PHP 8.4–8.5 mit `pgsql`, `mbstring`, `xml`, `zip`, `gd`, `intl`, `bcmath`, `curl`;
-   PostgreSQL 16–18 (inkl. `pg_dump` derselben Hauptversion wie der Server); Node 22 oder neuer;
-   Composer; Caddy oder nginx. Getestet: PHP 8.4 und 8.5, PostgreSQL 16 und 18, Node 22 und 26,
+1. **Pakete**: PHP 8.5 oder neuer (Mindestversion laut Entscheidung MINVER-1 vom 17.11.2026;
+   der Go-live-Check meldet ältere Versionen als Fehler) mit `pgsql`, `mbstring`, `xml`, `zip`,
+   `gd`, `intl`, `bcmath`, `curl`; PostgreSQL 16–18 (inkl. `pg_dump` derselben Hauptversion wie
+   der Server); Node 22 oder neuer; Composer; Caddy oder nginx. Die CI testet PHP 8.5 mit
+   PostgreSQL 16 und 18 (Node 22 bzw. 26), PHP 8.6 nur experimentell; von Hand geprüft mit
    nginx 1.31 (Tests, Migrationen, Seed, Build, Datensicherung samt Wiederherstellung).
 2. **DNS**: `lernen.example.de` (A/AAAA) auf den Server. Die Schulen sind unter
    `lernen.example.de/<slug>` erreichbar, ein Wildcard-Eintrag ist dafür nicht nötig.
@@ -161,7 +163,7 @@ Korrekturen aus dem Superadmin bleiben erhalten) laufen nur, wenn
 - `--with-content` übergeben wird (z. B. wenn ein Seeder Daten aus `app/` nutzt, die sich geändert haben).
 
 Das Log nennt jeweils, welcher Fall eingetreten ist („Seeder laufen: …“ bzw. „Seeder
-übersprungen: …“). Darf der Deploy-Benutzer PHP-FPM neu laden, `PHP_FPM_SERVICE=php8.4-fpm`
+übersprungen: …“). Darf der Deploy-Benutzer PHP-FPM neu laden, `PHP_FPM_SERVICE=php8.5-fpm`
 setzen (leert den Opcache).
 
 Migrationen sind nur vorwärts gedacht. Das Skript zieht deshalb vor jedem Update eine
@@ -528,7 +530,7 @@ die Datenbank; `app:check-production` weist ab mehr als 20 aktiven Schulen darau
 alle drei noch über die Datenbank laufen. Die App braucht dafür keine Codeänderung:
 
 ```bash
-sudo apt install redis-server php8.4-redis       # phpredis-Erweiterung (empfohlen)
+sudo apt install redis-server php8.5-redis       # phpredis-Erweiterung (empfohlen)
 # alternativ ohne Erweiterung: composer require predis/predis und REDIS_CLIENT=predis
 ```
 

@@ -1,8 +1,11 @@
 === Bootsschul-Plattform Connector ===
-Requires at least: 6.5
-Requires PHP: 8.1
+Requires at least: 7.0
+Tested up to: 7.1
+Requires PHP: 8.5
 Requires Plugins: woocommerce
-Stable tag: 1.4.4
+WC requires at least: 11.2
+WC tested up to: 11.3
+Stable tag: 1.5.0
 License: Proprietary
 
 Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werden die Codes im Codebestand der verknüpften Bootsschule hinterlegt.
@@ -70,9 +73,17 @@ Der Block-Checkout kennt kein eigenes USt-IdNr.-Feld. Dort prüft das Plugin ein
 
 Text-Domain `bs-connector`, Ordner `languages/`. Die Vorlage `languages/bs-connector.pot` erzeugt `php bin/make-pot.php` (im Plugin-Ordner) aus allen `__()`-/`esc_html__()`-Aufrufen. Ein Test der Plattform prüft, dass sie aktuell ist.
 
+== Mindestanforderungen ==
+
+* PHP 8.5 oder neuer, WordPress 7.0 oder neuer, WooCommerce 11.2 oder neuer (Entscheidung MINVER-1 vom 17.11.2026; einheitlich für Plattform, Plugins und Connectoren).
+* Datenbank: MySQL 9.7 oder neuer bzw. MariaDB 12.3 oder neuer empfohlen. Ein älterer Datenbankserver ergibt nur einen Hinweis für Administratoren, das Plugin läuft weiter.
+* Aktivieren: Fehlt eine der Mindestversionen (oder WooCommerce), bricht die Aktivierung mit einer Liste der fehlenden Anforderungen ab.
+* Laufender Betrieb (z. B. nach einem Downgrade von PHP, WordPress oder WooCommerce): Das Plugin läuft weiter und zeigt Administratoren (`manage_options`) einen Hinweis mit den fehlenden Anforderungen. Bewusst kein Abschalten: Eingeplante Zustellungen in Action Scheduler fänden sonst keinen Rückruf mehr und würden als fehlgeschlagen markiert, und Bootsschul-Produkte blieben ohne Einkaufsprüfung kaufbar.
+* Nur unter PHP 8.1 (dort kann der Code nicht laufen) und ohne WooCommerce startet das Plugin nicht. Eingeplante Aufgaben des Plugins gehen dabei nicht verloren: unter PHP 8.1 verschiebt das Plugin sie unverändert um eine Stunde, ohne WooCommerce läuft Action Scheduler ohnehin nicht.
+
 == Installation ==
 
-1. Ordner `woocommerce-connector` nach `wp-content/plugins/` kopieren und aktivieren (WooCommerce muss aktiv sein).
+1. Ordner `woocommerce-connector` nach `wp-content/plugins/` kopieren und aktivieren (WooCommerce 11.2 oder neuer muss aktiv sein, siehe „Mindestanforderungen“).
 2. Geheimnisse in `wp-config.php` eintragen:
 
     define( 'BS_CONNECTOR_APP_URL', 'https://app.example.de' );
@@ -109,6 +120,12 @@ Das Plugin meldet sich bei den Datenschutz-Werkzeugen von WordPress an (Werkzeug
 Für die USt-IdNr.-Prüfung geht die Nummer (Länderkennung und Nummer, ggf. die eigene USt-IdNr. des Shops) an den VIES-Dienst der EU-Kommission. Bestellungen und ihr Zustellstatus bleiben für die Buchhaltung erhalten. Das Konto auf der Plattform löscht der Plattform-Betreiber.
 
 == Changelog ==
+
+= 1.5.0 =
+* Mindestanforderungen angehoben (MINVER-1): PHP 8.5, WordPress 7.0, WooCommerce 11.2 (Plugin-Kopf und readme: `Requires PHP`, `Requires at least`, `WC requires at least`, `Tested up to` 7.1, `WC tested up to` 11.3).
+* Prüfung beim Aktivieren: Fehlt eine Mindestversion oder WooCommerce, wird das Plugin nicht aktiviert und nennt die fehlenden Anforderungen.
+* Im laufenden Betrieb nach einem Downgrade: Hinweis für Administratoren, das Plugin läuft weiter (eingeplante Zustellungen bleiben erhalten). Ersetzt den bisherigen Hinweis „benötigt WooCommerce“.
+* Hinweis für Administratoren, wenn die Datenbank älter als MySQL 9.7 bzw. MariaDB 12.3 ist (nur Warnung).
 
 = 1.4.4 =
 * Firmenfeld an der Kasse: Das Plugin zeigt das Feld „Firmenname“ selbst als optional an, wenn es in WooCommerce ausgeblendet oder nicht eingestellt ist (klassische und Block-Kasse, Filter auf die Option `woocommerce_checkout_company_field`); „Erforderlich“ bleibt. Sonst leerte jede Bestellung die Firma im Kundenkonto, und die Plattform erhielt keine Firma. Die gespeicherte Einstellung bleibt unverändert.
