@@ -32,6 +32,9 @@ class ProductionReadiness
     /** Länger darf ein fälliger Job nicht warten, sonst fehlt Worker-Kapazität. */
     public const MAX_JOB_WAIT_SECONDS = 600;
 
+    /** Mindestversion von PHP (Entscheidung MINVER-1 vom 17.11.2026, wie composer.json). */
+    public const MIN_PHP_VERSION = '8.5.0';
+
     private static int $lastWorkerBeat = 0;
 
     /** Vom Worker bei jedem Schleifendurchlauf aufgerufen, schreibt höchstens alle 30 s. */
@@ -59,6 +62,10 @@ class ProductionReadiness
                 $add('System', 'Prüfung fehlgeschlagen', 'fail', Str::limit($e->getMessage(), 200));
             }
         };
+
+        // --- System ----------------------------------------------------------
+        [$status, $detail] = self::phpVersion(PHP_VERSION);
+        $add('System', 'PHP '.substr(self::MIN_PHP_VERSION, 0, 3).' oder neuer', $status, $detail);
 
         // --- Konfiguration ---------------------------------------------------
         $env = (string) config('app.env');
@@ -252,6 +259,19 @@ class ProductionReadiness
         });
 
         return $checks;
+    }
+
+    /**
+     * Läuft die App mit der unterstützten PHP-Version? Ältere Versionen
+     * testet die CI nicht mehr (siehe .github/workflows/tests.yml).
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function phpVersion(string $version): array
+    {
+        return version_compare($version, self::MIN_PHP_VERSION, '>=')
+            ? ['ok', "aktuell: {$version}"]
+            : ['fail', "aktuell: {$version} – unterstützt ab PHP ".substr(self::MIN_PHP_VERSION, 0, 3).' (deploy/README.md)'];
     }
 
     /**

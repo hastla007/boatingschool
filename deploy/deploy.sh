@@ -205,7 +205,7 @@ seed_needed() {
 reload_fpm() {
     # Opcache leeren (bei opcache.validate_timestamps=0 sonst alter Code; im
     # Modus releases zusätzlich der Realpath-Cache des alten Ordners):
-    # PHP_FPM_SERVICE=php8.4-fpm setzen, wenn der Deploy-Benutzer reloaden darf.
+    # PHP_FPM_SERVICE=php8.5-fpm setzen, wenn der Deploy-Benutzer reloaden darf.
     if [ -n "${PHP_FPM_SERVICE:-}" ]; then sudo systemctl reload "$PHP_FPM_SERVICE"; fi
 }
 

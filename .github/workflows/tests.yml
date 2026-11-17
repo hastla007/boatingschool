@@ -15,20 +15,31 @@ jobs:
   tests:
     runs-on: ubuntu-latest
 
-    # Mindestversion (PHP 8.4 / PostgreSQL 16) und aktuelle Versionen
-    # (PHP 8.5 / PostgreSQL 18 / Node 26), siehe deploy/README.md.
+    # Mindestversion (PHP 8.5 / PostgreSQL 16) und aktuelle Versionen
+    # (PHP 8.5 / PostgreSQL 18 / Node 26), siehe deploy/README.md
+    # (Entscheidung MINVER-1 vom 17.11.2026). PHP 8.6 läuft nur
+    # experimentell (Nightly über setup-php): ein Fehlschlag dort macht den
+    # Lauf nicht rot.
     strategy:
       fail-fast: false
       matrix:
         include:
-          - php: 8.4
+          - php: 8.5
             postgres: 16
             node: 22
+            experimental: false
           - php: 8.5
             postgres: 18
             node: 26
+            experimental: false
+          - php: 8.6
+            postgres: 18
+            node: 26
+            experimental: true
 
-    name: PHP ${{ matrix.php }}
+    continue-on-error: ${{ matrix.experimental }}
+
+    name: PHP ${{ matrix.php }} / PostgreSQL ${{ matrix.postgres }}${{ matrix.experimental && ' (experimentell)' || '' }}
 
     # .env.example enthält bewusst keine Passwörter mehr (Sicherheitsreview
     # M4); die Wegwerf-Rollen dieses CI-Laufs (siehe "Create Postgres roles
@@ -69,8 +80,10 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
 
+      # Unter der experimentellen PHP-Version dürfen Pakete, die 8.6 noch
+      # nicht freigeben, trotzdem installiert werden.
       - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress
+        run: composer install --prefer-dist --no-interaction --no-progress ${{ matrix.experimental && '--ignore-platform-req=php+' || '' }}
 
       - name: Install NPM dependencies and build assets
         run: |

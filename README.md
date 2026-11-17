@@ -131,7 +131,7 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
 
 ## Setup (lokal)
 
-Voraussetzungen: PHP 8.4+, Composer, Node 22+ (Vite 8 braucht mindestens 20.19 bzw. 22.12), PostgreSQL 16+.
+Voraussetzungen: PHP 8.5+, Composer, Node 22+ (Vite 8 braucht mindestens 20.19 bzw. 22.12), PostgreSQL 16+.
 
 ```bash
 composer install
@@ -329,7 +329,9 @@ Nach der Zahlung landen die Codes im Codebestand der Schule. Codewerte
 verlassen die Plattform nie. Die Konten verknüpft ein Einmalcode aus der
 App oder die Freigabe durch den Superadmin. Gleiche E-Mail-Adressen
 verknüpfen nie. Commerce-API unter `/api/commerce/v1` (HMAC-signiert),
-WordPress-Plugin unter `integrations/woocommerce-connector/`. Alles Weitere:
+WordPress-Plugin unter `integrations/woocommerce-connector/` (ab 1.5.0: PHP 8.5+,
+WordPress 7.0+, WooCommerce 11.2+; MySQL 9.7+ bzw. MariaDB 12.3+ empfohlen, ältere
+Datenbank nur mit Hinweis). Alles Weitere:
 [`docs/commerce/README.md`](docs/commerce/README.md).
 
 ## Umfang dieser Version

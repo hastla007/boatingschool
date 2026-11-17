@@ -25,7 +25,10 @@ größeren WooCommerce-Updates abhaken.
       `php artisan app:check-production` meldet bei „Geheimnisse der
       Shop-Anbindung“ `ok`.
 - [ ] Cron für `schedule:run` läuft (sonst wird `app:commerce-outbox` nicht gesendet).
-- [ ] WordPress ≥ 6.5, WooCommerce ≥ 8 mit HPOS, PHP ≥ 8.1, Permalinks **nicht** „Einfach“.
+- [ ] Mindestanforderungen MINVER-1 (ab Plugin 1.5.0): PHP ≥ 8.5, WordPress ≥ 7.0,
+      WooCommerce ≥ 11.2 mit HPOS (sonst bricht die Aktivierung mit Hinweis ab); Datenbank
+      MySQL ≥ 9.7 bzw. MariaDB ≥ 12.3 empfohlen (älter: nur Hinweis im Backend);
+      Permalinks **nicht** „Einfach“.
 - [ ] Plugin kopiert und aktiviert. Geheimnisse in `wp-config.php` (siehe `readme.txt`).
       Ohne Konstanten zeigt WooCommerce → Einstellungen → Bootsschule keine Geheimnis-Felder,
       sondern die `define()`-Zeilen („Geheimnisse aus der Datenbank erlauben“ ist standardmäßig aus).

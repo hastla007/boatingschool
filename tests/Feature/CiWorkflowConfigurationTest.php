@@ -46,6 +46,8 @@ class CiWorkflowConfigurationTest extends TestCase
             $this->assertFileExists(base_path($script));
         }
         $this->assertTrue(is_executable(base_path('tests/connector-e2e/run.sh')) && is_executable(base_path('tests/connector-e2e/install-wordpress.sh')), 'Die E2E-Skripte müssen ausführbar sein (CI ruft sie direkt auf).');
-        $this->assertSame('8.4', (string) $job['steps'][1]['with']['php-version']);
+        // Mindestversionen MINVER-1: PHP 8.5, MySQL 9.7.
+        $this->assertSame('8.5', (string) $job['steps'][1]['with']['php-version']);
+        $this->assertSame('mysql:9.7', $job['services']['mysql']['image']);
     }
 }
