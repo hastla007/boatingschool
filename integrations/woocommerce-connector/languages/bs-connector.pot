@@ -2,7 +2,7 @@
 # Erzeugt mit bin/make-pot.php -- nicht von Hand bearbeiten.
 msgid ""
 msgstr ""
-"Project-Id-Version: Bootsschul-Plattform Connector 1.4.2\n"
+"Project-Id-Version: Bootsschul-Plattform Connector 1.4.3\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -78,7 +78,7 @@ msgstr ""
 msgid "Der Bestätigungslink ist ungültig oder abgelaufen. Melden Sie sich an und fordern Sie unter „Mein Konto → Bootsschule verknüpfen“ einen neuen Link an."
 msgstr ""
 
-#: includes/class-bs-accounts.php:236 includes/class-bs-accounts.php:609
+#: includes/class-bs-accounts.php:236 includes/class-bs-accounts.php:611
 msgid "Sitzung abgelaufen, bitte erneut versuchen."
 msgstr ""
 
@@ -140,69 +140,69 @@ msgid_plural "%d Konten übersprungen: nicht bei der Bootsschul-Plattform regist
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-bs-accounts.php:595 includes/class-bs-accounts.php:654
+#: includes/class-bs-accounts.php:597 includes/class-bs-accounts.php:656
 msgid "Bootsschule verknüpfen"
 msgstr ""
 
-#: includes/class-bs-accounts.php:616
+#: includes/class-bs-accounts.php:618
 msgid "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse über den Link in unserer E-Mail."
 msgstr ""
 
 #. translators: %s: Name der Bootsschule
-#: includes/class-bs-accounts.php:631
+#: includes/class-bs-accounts.php:633
 #, php-format
 msgid "Ihr Shopkonto ist jetzt mit „%s“ verknüpft."
 msgstr ""
 
-#: includes/class-bs-accounts.php:633
+#: includes/class-bs-accounts.php:635
 msgid "Zu viele Versuche. Bitte in einigen Minuten erneut versuchen."
 msgstr ""
 
-#: includes/class-bs-accounts.php:635
+#: includes/class-bs-accounts.php:637
 msgid "Für dieses Kundenkonto ist keine Verknüpfung möglich. Bitte wenden Sie sich an den Support."
 msgstr ""
 
-#: includes/class-bs-accounts.php:637
+#: includes/class-bs-accounts.php:639
 msgid "Die Bootsschul-Plattform ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut."
 msgstr ""
 
-#: includes/class-bs-accounts.php:639
+#: includes/class-bs-accounts.php:641
 msgid "Der Verknüpfungscode ist ungültig oder abgelaufen. Bitte auf der Plattform einen neuen erzeugen."
 msgstr ""
 
 #. translators: %s: E-Mail-Adresse
-#: includes/class-bs-accounts.php:656
+#: includes/class-bs-accounts.php:658
 #, php-format
 msgid "Ihre E-Mail-Adresse %s ist noch nicht bestätigt. Bitte öffnen Sie den Link in unserer E-Mail. Erst danach können Sie Ihr Konto mit Ihrer Bootsschule verknüpfen."
 msgstr ""
 
-#: includes/class-bs-accounts.php:661
+#: includes/class-bs-accounts.php:663
 msgid "Bestätigungsmail erneut senden"
 msgstr ""
 
 #. translators: %s: Name der Bootsschule
-#: includes/class-bs-accounts.php:669
+#: includes/class-bs-accounts.php:671
 #, php-format
 msgid "Verknüpft mit: %s. Gekaufte Codes werden nach der Zahlung dem Codebestand dieser Bootsschule gutgeschrieben."
 msgstr ""
 
-#: includes/class-bs-accounts.php:674
+#: includes/class-bs-accounts.php:676
 msgid "Ihr Konto ist noch nicht für den Einkauf freigeschaltet. Wir prüfen Ihre Angaben und melden uns per E-Mail."
 msgstr ""
 
-#: includes/class-bs-accounts.php:677 includes/class-bs-checkout.php:43
+#: includes/class-bs-accounts.php:679 includes/class-bs-checkout.php:43
 msgid "Für dieses Konto ist kein Einkauf für eine Bootsschule möglich. Bitte wenden Sie sich an den Support."
 msgstr ""
 
-#: includes/class-bs-accounts.php:681
+#: includes/class-bs-accounts.php:683
 msgid "Haben Sie bereits Zugang zur Plattform? Erzeugen Sie dort im Admin-Bereich unter „Zugangscodes → Shop verknüpfen“ einen Verknüpfungscode und geben Sie ihn hier ein."
 msgstr ""
 
-#: includes/class-bs-accounts.php:686
+#: includes/class-bs-accounts.php:688
 msgid "Verknüpfungscode"
 msgstr ""
 
-#: includes/class-bs-accounts.php:689
+#: includes/class-bs-accounts.php:691
 msgid "Verknüpfen"
 msgstr ""
 
@@ -508,142 +508,146 @@ msgstr ""
 msgid "Verfügbar: %s"
 msgstr ""
 
-#: includes/class-bs-settings.php:227
+#: includes/class-bs-settings.php:228
 msgid "Bootsschule"
 msgstr ""
 
-#: includes/class-bs-settings.php:236
+#: includes/class-bs-settings.php:237
 msgid "Anbindung an die Bootsschul-Plattform"
 msgstr ""
 
-#: includes/class-bs-settings.php:236
+#: includes/class-bs-settings.php:237
 msgid "Gekaufte Codes werden nach der Zahlung dem Codebestand der verknüpften Bootsschule gutgeschrieben. Werte in wp-config.php haben Vorrang."
 msgstr ""
 
-#: includes/class-bs-settings.php:237
+#: includes/class-bs-settings.php:238
 msgid "Adresse der Plattform"
 msgstr ""
 
-#: includes/class-bs-settings.php:238
+#: includes/class-bs-settings.php:239
 msgid "Schlüssel-ID (Shop → App)"
 msgstr ""
 
-#: includes/class-bs-settings.php:239
+#: includes/class-bs-settings.php:240
 msgid "Geheimnis (Shop → App)"
 msgstr ""
 
-#: includes/class-bs-settings.php:240
+#: includes/class-bs-settings.php:241
 msgid "Schlüssel-ID (App → Shop)"
 msgstr ""
 
-#: includes/class-bs-settings.php:241
+#: includes/class-bs-settings.php:242
 msgid "Geheimnis (App → Shop)"
 msgstr ""
 
-#: includes/class-bs-settings.php:242
+#: includes/class-bs-settings.php:243
 msgid "Geheimnisse aus der Datenbank erlauben"
 msgstr ""
 
-#: includes/class-bs-settings.php:242
+#: includes/class-bs-settings.php:243
 msgid "Empfohlen: aus (Standard). Dann gelten nur die Konstanten BS_CONNECTOR_SECRET und BS_CONNECTOR_INBOUND_SECRET aus wp-config.php: Das Formular zeigt keine Geheimnis-Felder, in der Datenbank gespeicherte Geheimnisse werden ignoriert. Erst nach dem Einschalten und Speichern erscheinen die Felder (Filter bs_connector_allow_db_secrets)."
 msgstr ""
 
-#: includes/class-bs-settings.php:243
+#: includes/class-bs-settings.php:244
 msgid "Alarm-Adresse"
 msgstr ""
 
-#: includes/class-bs-settings.php:243
+#: includes/class-bs-settings.php:244
 msgid "Erhält eine Mail, wenn eine Zustellung endgültig fehlschlägt. Leer = Admin-Adresse von WordPress."
 msgstr ""
 
-#: includes/class-bs-settings.php:244
+#: includes/class-bs-settings.php:245
 msgid "Meta-Feld der USt-ID"
 msgstr ""
 
-#: includes/class-bs-settings.php:245
+#: includes/class-bs-settings.php:246
 msgid "USt-IdNr. per VIES prüfen"
 msgstr ""
 
-#: includes/class-bs-settings.php:245
+#: includes/class-bs-settings.php:246
 msgid "Prüft Format und Gültigkeit der USt-IdNr. beim EU-Dienst VIES (Registrierung, Kasse, Rechnungsadresse). Ist VIES nicht erreichbar, wird die Nummer angenommen und später erneut geprüft."
 msgstr ""
 
-#: includes/class-bs-settings.php:246
+#: includes/class-bs-settings.php:247
 msgid "Eigene USt-IdNr. (für VIES)"
 msgstr ""
 
-#: includes/class-bs-settings.php:246
+#: includes/class-bs-settings.php:247
 msgid "Optional. Mit der eigenen Nummer liefert VIES eine Abfragenummer als Nachweis der Prüfung."
 msgstr ""
 
-#: includes/class-bs-settings.php:247
+#: includes/class-bs-settings.php:248
 msgid "Gesperrte Zahlarten"
 msgstr ""
 
-#: includes/class-bs-settings.php:247
+#: includes/class-bs-settings.php:248
 msgid "IDs der Zahlarten ohne bestätigten Zahlungseingang, kommagetrennt (z. B. cod für Nachnahme). Sie werden für Bootsschul-Codes an der Kasse ausgeblendet; Bestellungen damit werden erst nach Zahlungseingang zugestellt."
 msgstr ""
 
 #. translators: %s: Name der Konstante
-#: includes/class-bs-settings.php:258
+#: includes/class-bs-settings.php:259
 #, php-format
 msgid "Empfohlen: stattdessen %s in wp-config.php setzen."
 msgstr ""
 
-#: includes/class-bs-settings.php:294
+#: includes/class-bs-settings.php:297
 msgid "Geheimnisse in wp-config.php setzen"
 msgstr ""
 
 #. translators: %s: define()-Zeilen für wp-config.php
-#: includes/class-bs-settings.php:299
+#: includes/class-bs-settings.php:302
 #, php-format
 msgid "Die Geheimnisse werden nur aus wp-config.php gelesen. Tragen Sie dort vor der Zeile „That’s all, stop editing!“ ein: %s – die Werte entsprechen COMMERCE_SHOP_SECRET bzw. COMMERCE_OUTBOUND_SECRET der Bootsschul-Plattform. Ohne diese Konstanten ist die Anbindung aus."
 msgstr ""
 
-#: includes/class-bs-settings.php:315
+#: includes/class-bs-settings.php:318
 msgid "In wp-config.php festgelegt"
 msgstr ""
 
 #. translators: %s: Namen der Konstanten
-#: includes/class-bs-settings.php:320
+#: includes/class-bs-settings.php:323
 #, php-format
 msgid "Diese Werte sind hier nicht änderbar: %s"
 msgstr ""
 
-#: includes/class-bs-settings.php:342
+#: includes/class-bs-settings.php:345
 msgid "Verbindung testen"
 msgstr ""
 
-#: includes/class-bs-settings.php:343
+#: includes/class-bs-settings.php:346
 msgid "Verwendet die gespeicherten Einstellungen – vorher speichern."
 msgstr ""
 
-#: includes/class-bs-settings.php:351
+#: includes/class-bs-settings.php:354
 msgid "gespeichert – leer lassen, um es zu behalten"
 msgstr ""
 
-#: includes/class-bs-settings.php:424
-msgid "Sie werden nicht verwendet, weil die Konstanten in wp-config.php gesetzt sind. Speichern Sie die Einstellungen unter WooCommerce → Einstellungen → Bootsschule einmal, um sie aus der Datenbank zu entfernen."
-msgstr ""
-
-#: includes/class-bs-settings.php:426
-msgid "Sie werden ignoriert, weil Geheimnisse aus der Datenbank nicht erlaubt sind – die Anbindung funktioniert erst mit den Konstanten in wp-config.php."
-msgstr ""
-
-#: includes/class-bs-settings.php:428
-msgid "Empfohlen: in wp-config.php verschieben und danach „Geheimnisse aus der Datenbank erlauben“ ausschalten."
-msgstr ""
-
-#: includes/class-bs-settings.php:430
-msgid "Seit Version 1.4.0 sind Geheimnisse aus der Datenbank standardmäßig aus; beim Update wurde „Geheimnisse aus der Datenbank erlauben“ für diese Installation eingeschaltet, damit die Anbindung weiterläuft."
-msgstr ""
-
-#: includes/class-bs-settings.php:433
+#: includes/class-bs-settings.php:425 includes/class-bs-settings.php:450
 msgid "Bootsschul-Plattform Connector:"
 msgstr ""
 
+#: includes/class-bs-settings.php:426
+msgid "An der Kasse ist das Feld „Firmenname“ ausgeblendet. Jede Bestellung leert dadurch die Firma im Kundenkonto; die Bootsschul-Plattform erhält sie nicht mehr. Bitte das Feld auf „Optional“ oder „Erforderlich“ stellen (Kasse-Block im Website-Editor bzw. Design → Customizer → WooCommerce → Kasse)."
+msgstr ""
+
+#: includes/class-bs-settings.php:441
+msgid "Sie werden nicht verwendet, weil die Konstanten in wp-config.php gesetzt sind. Speichern Sie die Einstellungen unter WooCommerce → Einstellungen → Bootsschule einmal, um sie aus der Datenbank zu entfernen."
+msgstr ""
+
+#: includes/class-bs-settings.php:443
+msgid "Sie werden ignoriert, weil Geheimnisse aus der Datenbank nicht erlaubt sind – die Anbindung funktioniert erst mit den Konstanten in wp-config.php."
+msgstr ""
+
+#: includes/class-bs-settings.php:445
+msgid "Empfohlen: in wp-config.php verschieben und danach „Geheimnisse aus der Datenbank erlauben“ ausschalten."
+msgstr ""
+
+#: includes/class-bs-settings.php:447
+msgid "Seit Version 1.4.0 sind Geheimnisse aus der Datenbank standardmäßig aus; beim Update wurde „Geheimnisse aus der Datenbank erlauben“ für diese Installation eingeschaltet, damit die Anbindung weiterläuft."
+msgstr ""
+
 #. translators: %s: Namen der Konstanten
-#: includes/class-bs-settings.php:434
+#: includes/class-bs-settings.php:451
 #, php-format
 msgid "Geheimnisse der Anbindung liegen in der Datenbank (wp_options). Sicherer ist wp-config.php: %s."
 msgstr ""

@@ -1,0 +1,121 @@
+# Staging-Shop für die Shop-Anbindung: MySQL 8.4, WordPress (Apache) mit
+# WooCommerce, Yoast SEO und dem Connector-Plugin aus diesem Repository,
+# WP-CLI und Mailpit (SMTP + Web-Oberfläche). Anleitung: README.md.
+#
+# Alle Dienste laufen im Host-Netz (Linux): WordPress erreicht die App unter
+# BS_CONNECTOR_APP_URL (z. B. http://127.0.0.1:8000), die App den Shop unter
+# WP_URL, und WordPress ruft sich für WP-Cron/Action Scheduler selbst unter
+# derselben Adresse auf. Apache lauscht deshalb direkt auf WP_PORT.
+name: bs-staging-shop
+
+x-wp-env: &wp-env
+  WORDPRESS_DB_HOST: 127.0.0.1:${MYSQL_PORT:-3306}
+  WORDPRESS_DB_NAME: wordpress
+  WORDPRESS_DB_USER: wordpress
+  WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD in .env setzen}
+  # Adresse und Geheimnisse der Anbindung aus der Umgebung (.env) als Konstanten
+  # in wp-config.php (setup.sh verlangt sie). Leer = Konstante fehlt, das Plugin
+  # zeigt dann die define()-Zeilen statt der Felder (Staging-Test ohne Konstanten).
+  BS_CONNECTOR_APP_URL: ${BS_CONNECTOR_APP_URL:-}
+  BS_CONNECTOR_SECRET: ${COMMERCE_SHOP_SECRET:-}
+  BS_CONNECTOR_INBOUND_SECRET: ${COMMERCE_OUTBOUND_SECRET:-}
+  BS_STAGING_SMTP_HOST: 127.0.0.1
+  BS_STAGING_SMTP_PORT: ${MAILPIT_SMTP_PORT:-1025}
+  BS_STAGING_MAIL_FROM: ${SHOP_MAIL_FROM:-shop@example.test}
+  WORDPRESS_CONFIG_EXTRA: |
+    define('WP_HOME', getenv_docker('WP_URL', 'http://127.0.0.1:8080'));
+    define('WP_SITEURL', WP_HOME);
+    define('WP_ENVIRONMENT_TYPE', 'staging');
+    define('AUTOMATIC_UPDATER_DISABLED', true);
+    define('WP_DEBUG_LOG', true);
+    define('WP_DEBUG_DISPLAY', false);
+    foreach (['BS_CONNECTOR_APP_URL', 'BS_CONNECTOR_SECRET', 'BS_CONNECTOR_INBOUND_SECRET'] as $$bs_name) {
+        if (getenv_docker($$bs_name, '') !== '') {
+            define($$bs_name, getenv_docker($$bs_name, ''));
+        }
+    }
+    if (defined('BS_CONNECTOR_SECRET')) {
+        define('BS_CONNECTOR_KEY_ID', 'shop');
+        define('BS_CONNECTOR_INBOUND_KEY_ID', 'app');
+    }
+    define('BS_STAGING_SMTP_HOST', getenv_docker('BS_STAGING_SMTP_HOST', '127.0.0.1'));
+    define('BS_STAGING_SMTP_PORT', (int) getenv_docker('BS_STAGING_SMTP_PORT', '1025'));
+    define('BS_STAGING_MAIL_FROM', getenv_docker('BS_STAGING_MAIL_FROM', 'shop@example.test'));
+  WORDPRESS_DEBUG: "1"
+  WP_URL: ${WP_URL:-http://127.0.0.1:8080}
+
+services:
+  db:
+    image: ${REGISTRY:-docker.io}/library/mysql:8.4
+    network_mode: host
+    command: ["--port=${MYSQL_PORT:-3306}", "--bind-address=127.0.0.1", "--mysqlx=OFF"]
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD in .env setzen}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD in .env setzen}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -P ${MYSQL_PORT:-3306} -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+    restart: unless-stopped
+
+  wordpress:
+    image: ${REGISTRY:-docker.io}/library/wordpress:latest
+    network_mode: host
+    depends_on:
+      db:
+        condition: service_healthy
+    environment: *wp-env
+    # Apache auf WP_PORT statt 80 (Host-Netz, siehe oben).
+    command:
+      - bash
+      - -c
+      - >-
+        sed -ri 's/^Listen 80$$/Listen ${WP_PORT:-8080}/' /etc/apache2/ports.conf &&
+        sed -ri 's/<VirtualHost \*:80>/<VirtualHost *:${WP_PORT:-8080}>/' /etc/apache2/sites-enabled/000-default.conf &&
+        exec docker-entrypoint.sh apache2-foreground
+    volumes:
+      - wp_data:/var/www/html
+      - ../../integrations/woocommerce-connector:/var/www/html/wp-content/plugins/woocommerce-connector:ro
+      - ./mu-plugins:/var/www/html/wp-content/mu-plugins:ro
+    restart: unless-stopped
+
+  # Nur für Befehle: docker compose run --rm wpcli <wp-befehl>
+  wpcli:
+    image: ${REGISTRY:-docker.io}/library/wordpress:cli
+    network_mode: host
+    user: "33:33"
+    profiles: ["cli"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      <<: *wp-env
+      HOME: /tmp
+      # Nur nötig, wenn ausgehende Verbindungen über einen Proxy laufen.
+      HTTPS_PROXY: ${WPCLI_HTTPS_PROXY:-}
+      HTTP_PROXY: ${WPCLI_HTTPS_PROXY:-}
+    volumes:
+      - wp_data:/var/www/html
+      - ../../integrations/woocommerce-connector:/var/www/html/wp-content/plugins/woocommerce-connector:ro
+      - ./mu-plugins:/var/www/html/wp-content/mu-plugins:ro
+      - ./wp:/opt/staging:ro
+      - ./packages:/opt/packages:ro
+      - ../../tests/connector-e2e/wp:/opt/connector-e2e:ro
+
+  mailpit:
+    image: ${REGISTRY:-docker.io}/axllent/mailpit:latest
+    network_mode: host
+    environment:
+      MP_SMTP_BIND_ADDR: ${MAILPIT_BIND:-127.0.0.1}:${MAILPIT_SMTP_PORT:-1025}
+      MP_UI_BIND_ADDR: ${MAILPIT_BIND:-127.0.0.1}:${MAILPIT_UI_PORT:-8025}
+      MP_MAX_MESSAGES: 5000
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  wp_data:
