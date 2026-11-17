@@ -3,7 +3,8 @@
 /**
  * Mindestanforderungen (Entscheidung MINVER-1 vom 17.11.2026, gilt für
  * Plattform, Plugins und Connectoren): PHP 8.5, WordPress 7.0,
- * WooCommerce 11.2; MySQL 9.7 bzw. MariaDB 12.3 nur als Empfehlung.
+ * WooCommerce 11.2.2 (11.2.0/11.2.1 übernehmen Bestell- und Zahlungsdaten
+ * eines früheren Store-API-Checkouts im selben PHP-Prozess, woocommerce#70637); MySQL 9.7 bzw. MariaDB 12.3 nur als Empfehlung.
  *
  * - Aktivieren: Erfüllt die Umgebung PHP/WordPress/WooCommerce nicht, bricht
  *   die Aktivierung mit Hinweis ab (das Plugin läuft gar nicht erst an).
@@ -37,7 +38,7 @@ final class BS_Requirements
 
     const WORDPRESS = '7.0';
 
-    const WOOCOMMERCE = '11.2';
+    const WOOCOMMERCE = '11.2.2';
 
     const MYSQL = '9.7';
 

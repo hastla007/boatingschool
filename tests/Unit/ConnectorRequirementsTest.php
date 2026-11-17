@@ -8,7 +8,7 @@ use Symfony\Component\Process\Process;
 
 /**
  * WooCommerce-Plugin, Mindestanforderungen (MINVER-1 vom 17.11.2026):
- * PHP 8.5, WordPress 7.0, WooCommerce 11.2 sperren die Aktivierung, im
+ * PHP 8.5, WordPress 7.0, WooCommerce 11.2.2 sperren die Aktivierung, im
  * Betrieb nur ein Hinweis; MySQL 9.7 bzw. MariaDB 12.3 nur als Hinweis.
  * Läuft mit dem WordPress-Ersatz connector-wp-harness.php (eigener Prozess),
  * die Versionen kommen aus den Optionen.
@@ -54,15 +54,16 @@ class ConnectorRequirementsTest extends TestCase
         $this->assertSame('', $out['admin_notices']);
 
         // Entwicklerversionen zählen wie die Version selbst.
-        $this->assertSame([], $this->requirements(['php' => '8.6.0-dev', 'wordpress' => '7.0'], '11.2.0')['problems']);
+        $this->assertSame([], $this->requirements(['php' => '8.6.0-dev', 'wordpress' => '7.0'], '11.2.2')['problems']);
     }
 
     public static function outdatedCases(): array
     {
         return [
             'WordPress 6.9' => [['wordpress' => '6.9.1'], '11.3.0', 'WordPress 7.0 oder neuer (aktuell: 6.9.1)'],
-            'WooCommerce 11.1' => [[], '11.1.2', 'WooCommerce 11.2 oder neuer (aktuell: 11.1.2)'],
-            'WooCommerce nicht aktiv' => [[], '', 'WooCommerce 11.2 oder neuer (nicht aktiv)'],
+            'WooCommerce 11.1' => [[], '11.1.2', 'WooCommerce 11.2.2 oder neuer (aktuell: 11.1.2)'],
+            'WooCommerce 11.2.0 (woocommerce#70637)' => [[], '11.2.0', 'WooCommerce 11.2.2 oder neuer (aktuell: 11.2.0)'],
+            'WooCommerce nicht aktiv' => [[], '', 'WooCommerce 11.2.2 oder neuer (nicht aktiv)'],
             'PHP 8.4' => [['php' => '8.4.15'], '11.3.0', 'PHP 8.5 oder neuer (aktuell: 8.4.15)'],
         ];
     }
@@ -178,11 +179,11 @@ class ConnectorRequirementsTest extends TestCase
         $main = file_get_contents(self::$pluginDir.'/boatingschool-connector.php');
         $readme = file_get_contents(self::$pluginDir.'/readme.txt');
 
-        foreach (['Requires at least: 7.0', 'Requires PHP:      8.5', 'WC requires at least: 11.2', 'WC tested up to:   11.3', 'Version:           1.5.0'] as $header) {
+        foreach (['Requires at least: 7.0', 'Requires PHP:      8.5', 'WC requires at least: 11.2.2', 'WC tested up to:   11.3', 'Version:           1.5.1'] as $header) {
             $this->assertStringContainsString($header, $main);
         }
-        $this->assertStringContainsString("define('BS_CONNECTOR_VERSION', '1.5.0');", $main);
-        foreach (['Requires at least: 7.0', 'Tested up to: 7.1', 'Requires PHP: 8.5', 'Stable tag: 1.5.0', '= 1.5.0 ='] as $line) {
+        $this->assertStringContainsString("define('BS_CONNECTOR_VERSION', '1.5.1');", $main);
+        foreach (['Requires at least: 7.0', 'Tested up to: 7.1', 'Requires PHP: 8.5', 'Stable tag: 1.5.1', '= 1.5.1 ='] as $line) {
             $this->assertStringContainsString($line, $readme);
         }
 

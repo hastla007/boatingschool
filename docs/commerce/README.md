@@ -197,12 +197,12 @@ Neuinstallationen und Installationen ohne solche Geheimnisse bleiben bei „aus�
 
 Mindestanforderungen (Entscheidung MINVER-1 vom 17.11.2026, einheitlich für
 Plattform, Plugins und Connectoren; ab Plugin 1.5.0): **PHP 8.5+**, **WordPress
-7.0+**, **WooCommerce 11.2+** (HPOS-kompatibel, mit dem mitgelieferten Action
+7.0+**, **WooCommerce 11.2.2+** (HPOS-kompatibel, mit dem mitgelieferten Action
 Scheduler). Datenbank des Shops: **MySQL 9.7+** bzw. **MariaDB 12.3+** empfohlen;
 ein älterer Datenbankserver ergibt nur einen Hinweis für Administratoren, keine
 Sperre. Die Plattform selbst läuft weiter auf PostgreSQL (16–18).
 
-- **Aktivieren:** Fehlt PHP 8.5, WordPress 7.0 oder WooCommerce 11.2, bricht die
+- **Aktivieren:** Fehlt PHP 8.5, WordPress 7.0 oder WooCommerce 11.2.2, bricht die
   Aktivierung ab und nennt die fehlenden Anforderungen (`includes/class-bs-requirements.php`).
 - **Laufender Betrieb** (z. B. nach einem Downgrade): Das Plugin läuft weiter und zeigt
   Administratoren (`manage_options`) einen Hinweis. Bewusst kein Abschalten: Eingeplante
