@@ -35,7 +35,7 @@ größeren WooCommerce-Updates abhaken.
       „Geheimnisse aus der Datenbank erlauben“ ist eingeschaltet, Administratoren sehen den Hinweis
       „beim Update … eingeschaltet“. Nach Umzug in `wp-config.php` und Ausschalten verschwindet er.
 - [ ] Testzahlart mit Zahlungsbestätigung (z. B. Stripe-Testmodus) und zusätzlich „Nachnahme“ aktiv.
-- [ ] Feld „Firmenname“ an der Kasse sichtbar („Optional“ oder „Erforderlich“), sonst leert jede Bestellung die Firma im Kundenkonto; ab 1.4.3 zeigt das Plugin sonst einen Hinweis im Backend.
+- [ ] Feld „Firmenname“ an der Kasse sichtbar, auch wenn es in WooCommerce ausgeblendet ist (Standard neuer Installationen; ab 1.4.4 zeigt das Plugin es dann als „optional“, „Erforderlich“ bleibt erforderlich). Klassische und Block-Kasse prüfen; kein Firmenfeld-Hinweis im Backend, auf dem Einstellungs-Tab „Bootsschule“ der Satz „Das Firmenfeld wird an der Kasse als optional angezeigt …“. Plugin deaktiviert → wieder die gespeicherte WooCommerce-Einstellung.
 - [ ] Zwei Testschulen auf der Plattform: **A** (aktiv, Kurs SBF-SEE freigeschaltet), **B** (aktiv, SBF-SEE abgeschaltet).
 - [ ] Shop-Produkte: Kurscode SBF-SEE, Verlängerungscode SBF-SEE, ein Produktcode, ein Kurscode mit Zusatzprodukt, ein variables Produkt.
 - [ ] Prüfen: `WooCommerce → Status → Geplante Aktionen`, Gruppe `bs-connector`, ist nach den Bestelltests leer bzw. „Abgeschlossen“.
@@ -269,9 +269,10 @@ Theme, den Zahlarten und Plugins des echten Shops** – Abweichungen unten.
    (im Lauf: Einkauf 60 s nach der Freigabe möglich), freigeschaltete weiter 5 Minuten.
 2. Neue WooCommerce-Installationen blenden „Firmenname“ an der Kasse aus. Jede Bestellung
    über die Block-Kasse speicherte dann eine leere Firma im Kundenkonto (einmal `PATCH` ohne
-   Firma; die Plattform behält die alte, der Shop verliert sie). Jetzt Hinweis für
-   Administratoren im Backend; der Staging-Aufbau stellt das Feld auf „Optional“; Punkt in der
-   Vorbereitung ergänzt.
+   Firma; die Plattform behält die alte, der Shop verliert sie). In 1.4.3 Hinweis für
+   Administratoren im Backend; ab 1.4.4 zeigt das Plugin das Feld selbst als „optional“
+   an (Hinweis entfällt, der Staging-Aufbau setzt die Option nicht mehr); Punkt in der
+   Vorbereitung angepasst.
 3. Einstellungsseite ohne Konstanten: WooCommerce gibt die Beschreibung durch `wptexturize`
    aus, die `define()`-Zeilen erschienen mit typografischen Anführungszeichen (‚…‘) – kopiert
    ein PHP-Fehler in `wp-config.php`. Jetzt als `<code>` mit geraden Anführungszeichen.

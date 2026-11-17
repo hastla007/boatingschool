@@ -28,8 +28,7 @@ cp .env.example .env
 `setup.sh` startet die Container (offizielle Images `mysql:8.4`, `wordpress:latest`,
 `wordpress:cli`, `axllent/mailpit`), installiert WordPress, bringt es mit `wp core update`
 auf den neuesten Stand, installiert bzw. aktualisiert WooCommerce und Yoast SEO, stellt
-Deutsch ein, aktiviert HPOS, Permalinks „Beitragsname“, Deutschland/EUR, Firmenfeld an der
-Kasse, die Zahlarten Überweisung, Nachnahme und „Testzahlung“ und aktiviert den Connector.
+Deutsch ein, aktiviert HPOS, Permalinks „Beitragsname“, Deutschland/EUR, die Zahlarten Überweisung, Nachnahme und „Testzahlung“ und aktiviert den Connector.
 Am Ende gibt es die Versionen aus. Es kann jederzeit erneut laufen (z. B. für Updates).
 
 - Shop: `http://127.0.0.1:8080/wp-admin/` (Benutzer `admin`, Passwort aus `.env`)

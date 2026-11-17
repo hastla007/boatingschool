@@ -54,17 +54,36 @@ class ConnectorAccountsAndSettingsTest extends TestCase
         $this->assertSame(2, $out['calls_linked_cached'], 'Status mit Einkauf weiter 5 Minuten');
     }
 
-    public function test_administrators_are_warned_when_the_checkout_hides_the_company_field(): void
+    public static function companyFieldCases(): array
     {
-        $admin = ['manage_woocommerce', 'manage_options'];
-        $hidden = $this->harness('company_field_notice', ['caps' => $admin, 'stored' => ['woocommerce_checkout_company_field' => 'hidden']]);
-        $this->assertStringContainsString('Firmenname', $hidden['notice']);
+        return [
+            'ausgeblendet' => [['woocommerce_checkout_company_field' => 'hidden'], [], 'optional', 'hidden'],
+            'optional' => [['woocommerce_checkout_company_field' => 'optional'], [], 'optional', 'optional'],
+            'Pflichtfeld bleibt' => [['woocommerce_checkout_company_field' => 'required'], [], 'required', 'required'],
+            'Option fehlt (klassische Kasse)' => [[], [], 'optional', null],
+            // Ohne Plugin übernähme WooCommerce die Block-Standards und speicherte „hidden“.
+            'Option fehlt (Block-Kasse)' => [[], ['checkout_block_default' => true], 'optional', null],
+        ];
+    }
 
-        foreach (['optional', 'required'] as $setting) {
-            $this->assertSame('', $this->harness('company_field_notice', ['caps' => $admin, 'stored' => ['woocommerce_checkout_company_field' => $setting]])['notice'], $setting);
-        }
-        $this->assertSame('', $this->harness('company_field_notice', ['caps' => $admin])['notice'], 'ohne Option: WooCommerce zeigt das Feld');
-        $this->assertSame('', $this->harness('company_field_notice', ['caps' => ['manage_woocommerce'], 'stored' => ['woocommerce_checkout_company_field' => 'hidden']])['notice'], 'nicht für Shop-Manager');
+    #[DataProvider('companyFieldCases')]
+    public function test_the_checkout_always_shows_the_company_field_without_changing_the_setting(array $stored, array $extra, string $visibility, ?string $storedAfter): void
+    {
+        $out = $this->harness('company_field', ['caps' => ['manage_woocommerce', 'manage_options'], 'stored' => $stored] + $extra);
+
+        $this->assertSame($visibility, $out['visibility']);
+        $this->assertSame($storedAfter, $out['stored'], 'gespeicherte Einstellung unverändert');
+        $this->assertArrayHasKey('billing_company', $out['billing_fields'], 'klassische Kasse zeigt das Firmenfeld');
+        $this->assertSame($visibility === 'required', $out['billing_fields']['billing_company']['required']);
+    }
+
+    public function test_the_company_field_warning_is_replaced_by_a_sentence_on_the_settings_page(): void
+    {
+        $out = $this->harness('company_field', ['caps' => ['manage_woocommerce', 'manage_options'], 'stored' => ['woocommerce_checkout_company_field' => 'hidden']]);
+
+        $this->assertStringNotContainsString('Firmenname', $out['admin_notices'], 'kein Backend-Hinweis mehr');
+        $this->assertStringNotContainsString('Firmenfeld', $out['admin_notices']);
+        $this->assertStringContainsString('Das Firmenfeld wird an der Kasse als optional angezeigt, damit die Firma an die Plattform übertragen wird.', $out['settings_intro']);
     }
 
     public function test_account_page_reloads_use_the_cache_and_load_fresh_only_after_a_link_attempt(): void

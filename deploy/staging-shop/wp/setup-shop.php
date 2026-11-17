@@ -16,8 +16,8 @@ update_option('woocommerce_coming_soon', 'no');
 update_option('woocommerce_enable_myaccount_registration', 'yes');
 update_option('woocommerce_onboarding_profile', ['completed' => true, 'skipped' => true]);
 update_option('woocommerce_task_list_hidden', 'yes');
-// Firma an der Kasse abfragen: ausgeblendet leert jede Bestellung die Firma im Kundenkonto.
-update_option('woocommerce_checkout_company_field', 'optional');
+// Firmenfeld an der Kasse: bewusst nicht gesetzt. Ab Connector 1.4.4 zeigt das Plugin es
+// selbst als optional an; so prüft der Staging-Lauf den Standard neuer Installationen.
 
 foreach (['bacs', 'cod', 'bs_testpay'] as $gateway) {
     $settings = (array) get_option("woocommerce_{$gateway}_settings", []);

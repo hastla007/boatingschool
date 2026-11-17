@@ -208,7 +208,6 @@ final class BS_Settings
         add_action('woocommerce_settings_tabs_bs_connector', [__CLASS__, 'render_connection_test'], 20);
         add_action('woocommerce_update_options_bs_connector', [__CLASS__, 'save']);
         add_action('admin_notices', [__CLASS__, 'secrets_notice']);
-        add_action('admin_notices', [__CLASS__, 'company_field_notice']);
     }
 
     public static function can_manage(): bool
@@ -234,7 +233,7 @@ final class BS_Settings
     private static function fields(): array
     {
         return [
-            ['title' => __('Anbindung an die Bootsschul-Plattform', 'bs-connector'), 'type' => 'title', 'id' => 'bs_connector_section', 'desc' => __('Gekaufte Codes werden nach der Zahlung dem Codebestand der verknüpften Bootsschule gutgeschrieben. Werte in wp-config.php haben Vorrang.', 'bs-connector')],
+            ['title' => __('Anbindung an die Bootsschul-Plattform', 'bs-connector'), 'type' => 'title', 'id' => 'bs_connector_section', 'desc' => __('Gekaufte Codes werden nach der Zahlung dem Codebestand der verknüpften Bootsschule gutgeschrieben. Werte in wp-config.php haben Vorrang.', 'bs-connector').' '.__('Das Firmenfeld wird an der Kasse als optional angezeigt, damit die Firma an die Plattform übertragen wird.', 'bs-connector')],
             ['title' => __('Adresse der Plattform', 'bs-connector'), 'id' => self::OPTION.'[app_url]', 'type' => 'url', 'placeholder' => 'https://app.example.de'],
             ['title' => __('Schlüssel-ID (Shop → App)', 'bs-connector'), 'id' => self::OPTION.'[key_id]', 'type' => 'text', 'default' => 'shop'],
             self::secret_field('secret', __('Geheimnis (Shop → App)', 'bs-connector')),
@@ -412,20 +411,6 @@ final class BS_Settings
      * Dauerhafter Hinweis im Backend, solange Geheimnisse in der Datenbank
      * liegen (nicht ausblendbar, nur mit CAPABILITY).
      */
-    /**
-     * Firmenfeld an der Kasse ausgeblendet (Standard neuer WooCommerce-Installationen):
-     * Jede Bestellung speichert dann eine leere Firma im Kundenkonto, die Plattform
-     * erhält beim Abgleich keine Firma mehr und Rechnungen zeigen keine.
-     */
-    public static function company_field_notice(): void
-    {
-        if (! self::can_manage() || get_option('woocommerce_checkout_company_field', 'optional') !== 'hidden') {
-            return;
-        }
-        echo '<div class="notice notice-warning"><p><strong>'.esc_html__('Bootsschul-Plattform Connector:', 'bs-connector').'</strong> ';
-        echo esc_html__('An der Kasse ist das Feld „Firmenname“ ausgeblendet. Jede Bestellung leert dadurch die Firma im Kundenkonto; die Bootsschul-Plattform erhält sie nicht mehr. Bitte das Feld auf „Optional“ oder „Erforderlich“ stellen (Kasse-Block im Website-Editor bzw. Design → Customizer → WooCommerce → Kasse).', 'bs-connector').'</p></div>';
-    }
-
     public static function secrets_notice(): void
     {
         if (! self::can_manage()) {
