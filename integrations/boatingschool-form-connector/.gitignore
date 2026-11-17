@@ -1,0 +1,5 @@
+# Add-on-Kernel und Lizenzclient (captain-pro, proprietär): nur im Release-ZIP, nie im öffentlichen Repository
+# (BS-03, BS-11). Erzeugt von bin/build-libs.php.
+/lib/
+# Release-ZIPs von bin/build-zip.php
+/build/
