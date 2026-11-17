@@ -11,6 +11,10 @@
  *
  * Ausdrücklicher Abgleich (ohne Prüfsummen-Vergleich): Knopf im Nutzerprofil,
  * Sammelaktion in der Nutzerliste und `wp bs-connector resync` (BS_CLI).
+ *
+ * Firmenfeld an der Kasse: Ausgeblendet („hidden“, Standard neuer
+ * WooCommerce-Installationen) leert jede Bestellung die Firma im Kundenkonto.
+ * Das Plugin liest die Option deshalb als „optional“ (siehe company_field_visibility()).
  */
 defined('ABSPATH') || exit;
 
@@ -35,6 +39,9 @@ final class BS_Accounts
     /** admin-post-Aktion, Nonce-Präfix und Sammelaktion für „Konto neu abgleichen“. */
     const RESYNC_ACTION = 'bs_connector_account_resync';
 
+    /** WooCommerce-Option für das Feld „Firmenname“ an der Kasse (optional, required, hidden). */
+    const COMPANY_FIELD_OPTION = 'woocommerce_checkout_company_field';
+
     public static function init(): void
     {
         add_action('woocommerce_register_form', [__CLASS__, 'registration_fields']);
@@ -46,6 +53,10 @@ final class BS_Accounts
         // dieser Hook sieht den gespeicherten Stand.
         add_action('woocommerce_update_customer', [__CLASS__, 'queue_update']);
         add_action('delete_user', [__CLASS__, 'queue_deactivate']);
+        // Klassische Kasse (WC_Countries) und Block-Kasse (CoreCheckoutFields) lesen
+        // beide diese Option; die gespeicherte Einstellung bleibt unverändert.
+        add_filter('option_'.self::COMPANY_FIELD_OPTION, [__CLASS__, 'company_field_visibility']);
+        add_filter('default_option_'.self::COMPANY_FIELD_OPTION, [__CLASS__, 'company_field_visibility']);
         add_action('bs_connector_sync_account', [__CLASS__, 'sync_account'], 10, 4);
 
         // Backend: Konto ausdrücklich neu abgleichen (nur Administratoren).
@@ -62,6 +73,18 @@ final class BS_Accounts
         add_action('template_redirect', [__CLASS__, 'handle_verification_link']);
         add_action('template_redirect', [__CLASS__, 'handle_resend_form']);
         add_action('template_redirect', [__CLASS__, 'handle_link_form']);
+    }
+
+    /**
+     * Firmenfeld an der Kasse nie ausgeblendet: „hidden“ und eine fehlende Option
+     * (WooCommerce setzt sie bei der Block-Kasse sonst auf „hidden“) werden als
+     * „optional“ gelesen, „required“ bleibt. Ohne Plugin gilt wieder die Einstellung.
+     *
+     * @param  mixed  $value  gespeicherter Wert bzw. Standard
+     */
+    public static function company_field_visibility($value): string
+    {
+        return $value === 'required' ? 'required' : 'optional';
     }
 
     public static function add_endpoint(): void

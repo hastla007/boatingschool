@@ -161,10 +161,11 @@ function delete_user_meta($id, $key)
 
     return true;
 }
-/** Hooks nur aufzeichnen (Hook => Rückruf). */
+/** Hooks nur aufzeichnen (Hook => letzter Rückruf; alle Rückrufe in bs_hook_list). */
 function add_action($hook, $callback, $priority = 10, $args = 1)
 {
     $GLOBALS['bs_hooks'][$hook] = $callback;
+    $GLOBALS['bs_hook_list'][$hook][] = $callback;
 
     return true;
 }
@@ -191,9 +192,16 @@ if (! empty($options['action_scheduler'])) {
         return count($GLOBALS['bs_queue']);
     }
 }
+/** Wie WordPress: option_{name} für gespeicherte Werte, default_option_{name} sonst. */
 function get_option($name, $default = false)
 {
-    return $GLOBALS['bs_options'][$name] ?? $default;
+    $stored = array_key_exists($name, $GLOBALS['bs_options']);
+    $value = $stored ? $GLOBALS['bs_options'][$name] : $default;
+    foreach ($GLOBALS['bs_hook_list'][($stored ? 'option_' : 'default_option_').$name] ?? [] as $callback) {
+        $value = $callback($value);
+    }
+
+    return $value;
 }
 function update_option($name, $value)
 {
@@ -343,6 +351,39 @@ $noticesFor = static function (?string $url): string {
 
     return (string) ob_get_clean();
 };
+// Wie CartCheckoutUtils::get_company_field_visibility() (WooCommerce 11.3): ohne Option
+// übernimmt die Block-Kasse ihre Standards und speichert „hidden“, sonst gilt „optional“.
+$wcCompanyVisibility = static function () use ($options): string {
+    $value = get_option('woocommerce_checkout_company_field');
+    if ($value) {
+        return $value;
+    }
+    if (! empty($options['checkout_block_default'])) {
+        update_option('woocommerce_checkout_company_field', 'hidden');
+
+        return get_option('woocommerce_checkout_company_field', 'hidden');
+    }
+
+    return 'optional';
+};
+// Rechnungsfelder der klassischen Kasse wie WC_Countries::get_default_address_fields()
+// und get_address_fields('', 'billing_') (WooCommerce 11.3), nur Name und Firma.
+$wcClassicBillingFields = static function () use ($wcCompanyVisibility): array {
+    $fields = [
+        'first_name' => ['required' => true],
+        'last_name' => ['required' => true],
+        'company' => ['required' => $wcCompanyVisibility() === 'required'],
+    ];
+    if ($wcCompanyVisibility() === 'hidden') {
+        unset($fields['company']);
+    }
+    $billing = [];
+    foreach ($fields as $key => $field) {
+        $billing['billing_'.$key] = $field;
+    }
+
+    return $billing;
+};
 $fieldIds = static fn (?array $fields): ?array => $fields === null ? null : array_values(array_map(static fn ($f) => $f['id'] ?? $f['type'], $fields));
 
 switch ($scenario) {
@@ -385,10 +426,20 @@ switch ($scenario) {
         $out['calls_linked_cached'] = $calls();
         break;
 
-    case 'company_field_notice':
+    case 'company_field':
+        BS_Settings::init();
+        BS_Accounts::init();
+        $out['visibility'] = $wcCompanyVisibility();
+        $out['billing_fields'] = $wcClassicBillingFields();
+        $out['stored'] = $GLOBALS['bs_options']['woocommerce_checkout_company_field'] ?? null;
+        // Alle Backend-Hinweise der Plugin-Klassen.
         ob_start();
-        BS_Settings::company_field_notice();
-        $out['notice'] = (string) ob_get_clean();
+        foreach ($GLOBALS['bs_hook_list']['admin_notices'] ?? [] as $callback) {
+            $callback();
+        }
+        $out['admin_notices'] = (string) ob_get_clean();
+        BS_Settings::render();
+        $out['settings_intro'] = implode(' ', array_map(static fn ($f) => (string) ($f['desc'] ?? ''), array_filter((array) $GLOBALS['bs_rendered'], static fn ($f) => ($f['id'] ?? '') === 'bs_connector_section')));
         break;
 
     case 'render_endpoint':

@@ -2,7 +2,7 @@
 Requires at least: 6.5
 Requires PHP: 8.1
 Requires Plugins: woocommerce
-Stable tag: 1.4.3
+Stable tag: 1.4.4
 License: Proprietary
 
 Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werden die Codes im Codebestand der verknüpften Bootsschule hinterlegt.
@@ -20,6 +20,7 @@ Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werd
 * Kurs- und Verlängerungscodes lassen sich nur für Kurse bestellen, die die verknüpfte Schule derzeit erhalten kann (geprüft schon beim Hinzufügen zum Warenkorb).
 * Rückerstattungen nur als Betrag (ohne Positionsmenge) sperren keine Codes; das Plugin meldet sie per Bestellnotiz und Alarm-Mail.
 * Kontaktdaten (E-Mail, Vor- und Nachname, Firma, Rechnungsland, USt-IdNr.) gleicht das Plugin beim Speichern von Profil oder Adresse mit der Plattform ab (`PATCH /accounts/{id}`, über Action Scheduler mit bis zu drei Versuchen) – aber nur, wenn sich eines dieser Felder seit dem letzten erfolgreichen Abgleich geändert hat (Prüfsumme in der Nutzer-Meta `_bs_account_sync_hash`, gesetzt erst nach erfolgreicher Antwort). WooCommerce speichert den Kunden z. B. bei jeder Bestellung; das löst nur noch einen Abgleich aus, wenn dabei z. B. die Firma geändert wurde (geprüft nach dem Speichern der Rechnungsdaten, Hook `woocommerce_update_customer`). Wurde das Konto auf der Plattform geändert oder zurückgesetzt, gleicht „Konto neu abgleichen“ (siehe „Betrieb“) ohne diese Prüfung ab.
+* Das Feld „Firmenname“ ist an der Kasse immer sichtbar (klassische und Block-Kasse): Ist es in WooCommerce ausgeblendet (Standard neuer Installationen) oder nicht eingestellt, zeigt das Plugin es als optional an; „Erforderlich“ bleibt erforderlich. Die gespeicherte Einstellung (`woocommerce_checkout_company_field`) bleibt unverändert und gilt wieder, sobald das Plugin deaktiviert ist.
 * Der Kontostatus aus der Plattform wird zwischengespeichert (5 Minuten; Konten ohne Einkaufsfreigabe und Fehlschläge 60 Sekunden). An der Kasse wird frisch geprüft, höchstens alle 10 Sekunden je Kunde; „Mein Konto → Bootsschule verknüpfen“ lädt nur nach einem Verknüpfungsversuch frisch. So können Kunden die Begrenzung der Plattform nicht aufbrauchen.
 
 == Zahlarten ==
@@ -108,6 +109,10 @@ Das Plugin meldet sich bei den Datenschutz-Werkzeugen von WordPress an (Werkzeug
 Für die USt-IdNr.-Prüfung geht die Nummer (Länderkennung und Nummer, ggf. die eigene USt-IdNr. des Shops) an den VIES-Dienst der EU-Kommission. Bestellungen und ihr Zustellstatus bleiben für die Buchhaltung erhalten. Das Konto auf der Plattform löscht der Plattform-Betreiber.
 
 == Changelog ==
+
+= 1.4.4 =
+* Firmenfeld an der Kasse: Das Plugin zeigt das Feld „Firmenname“ selbst als optional an, wenn es in WooCommerce ausgeblendet oder nicht eingestellt ist (klassische und Block-Kasse, Filter auf die Option `woocommerce_checkout_company_field`); „Erforderlich“ bleibt. Sonst leerte jede Bestellung die Firma im Kundenkonto, und die Plattform erhielt keine Firma. Die gespeicherte Einstellung bleibt unverändert.
+* Der Hinweis für Administratoren aus 1.4.3 entfällt; der Einstellungs-Tab „Bootsschule“ nennt das Verhalten in einem Satz.
 
 = 1.4.3 =
 * Nicht freigeschaltete Konten (z. B. in Prüfung): Status nur 60 Sekunden zwischengespeichert statt 5 Minuten – nach der Freigabe durch den Plattform-Betreiber ist der Einkauf spätestens nach einer Minute möglich.

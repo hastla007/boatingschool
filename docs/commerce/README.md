@@ -208,11 +208,14 @@ Action Scheduler. Außerdem:
 - „In den Warenkorb“, Warenkorb und Kasse prüfen, ob die verknüpfte Schule den Kurs erhalten kann (`deliverable_course_codes` aus `GET /accounts/{id}`), damit nicht nach der Zahlung eine Lieferung scheitert. Kurs- und Verlängerungscodes für nicht freigeschaltete Kurse kommen gar nicht erst in den Warenkorb.
 - **Klassischer und Block-Checkout** prüfen unmittelbar vor der Bestellung
   frisch, ob das Konto einkaufen darf.
-- **Firmenname an der Kasse:** Das Feld muss sichtbar sein („Optional“ oder „Erforderlich“;
-  Kasse-Block im Website-Editor bzw. Customizer → WooCommerce → Kasse). Neue
-  WooCommerce-Installationen blenden es aus; dann speichert jede Bestellung eine leere
-  Firma im Kundenkonto, und die Plattform erhält beim Abgleich keine Firma mehr. Ab
-  Plugin 1.4.3 weist ein Hinweis im Backend darauf hin.
+- **Firmenname an der Kasse:** Neue WooCommerce-Installationen blenden das Feld aus; dann
+  speichert jede Bestellung eine leere Firma im Kundenkonto, und die Plattform erhält beim
+  Abgleich keine Firma mehr. Ab Plugin 1.4.4 zeigt das Plugin das Feld in der klassischen und
+  der Block-Kasse selbst als „optional“ an („Erforderlich“ bleibt erforderlich): Es liest die
+  Option `woocommerce_checkout_company_field` über die Filter `option_…`/`default_option_…`
+  nie als „hidden“. Die gespeicherte Einstellung bleibt unverändert; ohne Plugin gilt sie
+  wieder. Der Hinweis im Backend aus 1.4.3 entfällt, der Einstellungs-Tab „Bootsschule“
+  nennt das Verhalten in einem Satz.
 - **E-Mail-Bestätigung:** Neue Kundenkonten werden erst nach dem Klick auf den Bestätigungslink (signiert, 3 Tage gültig, einmalig) bei der Plattform angemeldet. „Mein Konto → Bootsschule verknüpfen“ zeigt den Stand und bietet „Bestätigungsmail erneut senden“. Vom Provisionierungs-Endpunkt angelegte Konten gelten als bestätigt.
 - **Betrieb im Shop:** Protokoll unter WooCommerce → Status → Protokolle (Quelle `bs-connector`, nie Codewerte oder Geheimnisse); Knopf „Verbindung testen“ auf dem Einstellungs-Tab (`GET /catalog`); Seite WooCommerce → Bootsschul-Zustellungen mit allen fehlgeschlagenen Positionen und der Sammelaktion „Erneut zustellen“; `wp bs-connector reconcile [--days=30]` gleicht Positionen mit `GET /orders/{id}/lines/{line}` ab und listet Abweichungen; `wp bs-connector resync <user-id|email>...` gleicht Kundenkonten neu ab (siehe „Kontoabgleich“).
 - **Kontoabgleich:** Kontaktdaten (E-Mail, Name, Firma, Rechnungsland, USt-IdNr.) gehen per `PATCH /accounts/{id}` an die Plattform, wenn sie sich im Shop seit dem letzten erfolgreichen Abgleich geändert haben (Prüfsumme `_bs_account_sync_hash`, erst nach erfolgreicher Antwort gesetzt). Wurde das Konto auf der Plattform geändert oder zurückgesetzt, sendet der Shop daher von sich aus erst nach der nächsten Änderung im Shop. Für diesen Fall gibt es ab Plugin 1.4.2 einen ausdrücklichen Abgleich ohne Prüfsummen-Vergleich (danach wird die Prüfsumme wie sonst gesetzt): Knopf „Konto mit der Bootsschul-Plattform neu abgleichen“ im Benutzerprofil des Shop-Backends bzw. die gleichnamige Sammelaktion in der Benutzerliste (nur Administratoren mit `manage_options`, nur bei der Plattform registrierte Konten; eingeplant über Action Scheduler mit bis zu drei Versuchen, Hinweis „Abgleich eingeplant“) sowie `wp bs-connector resync <user-id|email>...` (sendet sofort, meldet das Ergebnis je Konto, Exit-Status 1 bei einem nicht abgeglichenen Konto). Ein auf der Plattform gelöschtes Konto (404) legt der Abgleich nicht neu an.
