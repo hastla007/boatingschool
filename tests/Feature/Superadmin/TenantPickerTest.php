@@ -173,6 +173,28 @@ class TenantPickerTest extends TestCase
     }
 
     /**
+     * Das Schulfeld des Protokolls (und der Codeliste) zeigt nach dem
+     * Absenden wieder, was gilt: den Namen der aufgelösten Schule bzw. den
+     * nicht auflösbaren Rohtext (escaped).
+     */
+    public function test_school_filter_field_keeps_its_value_after_submitting(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant('Feldschule');
+        $assertField = function (string $url, string $id, string $value) use ($superadmin) {
+            $html = $this->actingAs($superadmin)->get($url)->assertOk()->getContent();
+            $this->assertMatchesRegularExpression('/<input id="'.$id.'" name="tenant_slug" [^>]*value="'.preg_quote(e($value), '/').'"/', $html, $url);
+        };
+
+        $assertField('/superadmin/audit?tenant=&tenant_slug='.strtoupper($tenant->slug), 'tenant', $tenant->name);
+        $assertField('/superadmin/audit?tenant=&tenant_slug='.urlencode('Feld & "Schule"'), 'tenant', 'Feld & "Schule"');
+        $assertField('/superadmin/audit?tenant_slug=Feld&platform_only=1', 'tenant', 'Feld');
+
+        $assertField('/superadmin/coupons?tenant_id=&tenant_slug=Feld', 'coupon_tenant_id_sa', 'Feld');
+        $assertField('/superadmin/coupons?tenant_id=&tenant_slug='.$tenant->slug, 'coupon_tenant_id_sa', $tenant->name);
+    }
+
+    /**
      * Ein nicht auflösbarer Schulfilter (z. B. Teil eines Namens, ohne einen
      * Treffer zu wählen) zeigt keine Codes statt aller Schulen -- und
      * „alle gefilterten Codes“ sperren bzw. exportieren wirkt dann nicht auf

@@ -27,6 +27,10 @@ export default (config) => ({
             this.chosenText = '';
         }
         const q = this.query.trim();
+        if (q.length === 1 || (q === '' && ! showAll)) {
+            // Laufende Suche verwerfen, sonst öffnet ihre späte Antwort die Liste wieder.
+            this.controller?.abort();
+        }
         if (q.length === 1) {
             this.close();
             this.message = 'Bitte mindestens zwei Zeichen eingeben.';
